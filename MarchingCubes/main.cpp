@@ -29,14 +29,15 @@ int main(int argc, char ** argv) {
     float scaleZ = v->dz;
 
     int size_tmp = v->nvox;
-    unsigned char* voxels = new unsigned char[size_tmp];
-    for (int i = 0; i < size_tmp; i++) {
-        short d = v->data[i];
-        if (d < 0) d = 0;
-        if (d > 2000) d = 2000;
-        d = float(d) * 255 / 2000;
-        voxels[i] = unsigned char(d);
-    }
+    short* voxels = v->data;
+    //unsigned char* voxels = new unsigned char[size_tmp];
+    //for (int i = 0; i < size_tmp; i++) {
+    //    short d = v->data[i];
+    //    if (d < 0) d = 0;
+    //    if (d > 2000) d = 2000;
+    //    d = float(d) * 255 / 2000;
+    //    voxels[i] = unsigned char(d);
+    //}
     int size = prepareDataset(&voxels, sizeX / stepSizeX, sizeY / stepSizeY, sizeZ / stepSizeZ);
 
     setupOpenGL(&argc, argv, size, sizeX / stepSizeX, sizeY / stepSizeY, sizeZ / stepSizeZ, scaleX, scaleY, scaleZ);

@@ -10,7 +10,7 @@ bool extractSurfaceOnEveryFrame;
 bool extractSurface;
 
 int SIZE;
-int isolevel = 51;
+int isolevel = 1000;
 int windowWidth, windowHeight;
 int windowID;
 
@@ -75,7 +75,7 @@ void drawFPSCounter(int sum) {
 
     int time = glutGet(GLUT_ELAPSED_TIME);
     if (time - timebase > 1000) { // 1 times per second
-        sprintf_s(s, "Triangles: %d FPS: %4.2f. Speed: %d ms. Isovalue: %4.3f", sum, frame*1000.0 / (time - timebase), (int)round(time - previousTime), (float)isolevel / 255.0f);
+        sprintf_s(s, "Triangles: %d FPS: %4.2f. Speed: %d ms. Isovalue: %4.3f", sum, frame*1000.0 / (time - timebase), (int)round(time - previousTime), (float)isolevel);
         timebase = time;
         frame = 0;
     }
@@ -269,12 +269,12 @@ void setupOpenGL(int * argc, char ** argv, int size, int sizeX, int sizeY, int s
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
     case '+':
-        isolevel++;
+        isolevel+=40;
         if (!extractSurfaceOnEveryFrame)
             extractSurface = true;
         break;
     case '-':
-        isolevel--;
+        isolevel-=40;
         if (!extractSurfaceOnEveryFrame)
             extractSurface = true;
         break;
@@ -306,7 +306,7 @@ int max(int a, int b) {
     return a > b ? a : b;
 }
 
-int prepareDataset(uchar ** voxels, int sizeX, int sizeY, int sizeZ) {
+int prepareDataset(short ** voxels, int sizeX, int sizeY, int sizeZ) {
     // If all equal and power of two exit
     if (sizeX == sizeY && sizeY == sizeZ && sizeX == pow(2, log2(sizeX)))
         return sizeX;
@@ -320,7 +320,7 @@ int prepareDataset(uchar ** voxels, int sizeX, int sizeY, int sizeZ) {
     size = 1 << i;
 
     // Make new voxel array of this size and fill it with zeros
-    uchar * newVoxels = new uchar[size*size*size];
+    short * newVoxels = new short[size*size*size];
     for (int j = 0; j < size*size*size; j++)
         newVoxels[j] = 0;
 
@@ -346,7 +346,7 @@ inline std::string to_string(const T& t) {
     return ss.str();
 }
 
-void setupOpenCL(uchar * voxels, int size) {
+void setupOpenCL(short * voxels, int size) {
     SIZE = size;
     try {
         // Create a context that use a GPU and OpenGL interop.
@@ -451,7 +451,7 @@ void setupOpenCL(uchar * voxels, int size) {
         rawData = cl::Image3D(
             context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            cl::ImageFormat(CL_R, CL_UNSIGNED_INT8),
+            cl::ImageFormat(CL_R, CL_SIGNED_INT16),
             SIZE, SIZE, SIZE,
             0, 0, voxels
             );

@@ -23,7 +23,7 @@ typedef unsigned int uint;
 typedef unsigned char uchar;
 
 void setupOpenGL(int * argc, char ** argv, int size, int sizeX, int sizeY, int sizeZ, float spacingX, float spacingY, float spacingZ);
-void setupOpenCL(unsigned char * voxels, int size);
+void setupOpenCL(short * voxels, int size);
 void run();
 void renderScene();
 void idle();
@@ -31,7 +31,7 @@ void reshape(int width, int height);
 void keyboard(unsigned char key, int x, int y);
 void mouseMovement(int x, int y);
 
-int prepareDataset(uchar ** voxels, int sizeX, int sizeY, int sizeZ);
+int prepareDataset(short ** voxels, int sizeX, int sizeY, int sizeZ);
 
 void updateScalarField();
 void histoPyramidConstruction();
