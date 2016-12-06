@@ -10,8 +10,8 @@
 int main(int argc, char ** argv) {
 #if 1
     Nii* nii = new Nii;
-    nii->niiReadImage("Z:/zhoubowei/Documents/VolumeSeg/VolumeSeg/data/test.nii");
-    //nii->niiReadImage("Z:/zhoubowei/Documents/VolumeSeg/VolumeSeg/data/101345a.nii.gz");
+    //nii->niiReadImage("Z:/zhoubowei/Documents/VolumeSeg/VolumeSeg/data/test.nii");
+    nii->niiReadImage("Z:/zhoubowei/Documents/VolumeSeg/VolumeSeg/data/101345a.nii.gz");
     nii->niiPrintInfo();
     VolumeData* v = new VolumeData;
     v->fromNii(nii);

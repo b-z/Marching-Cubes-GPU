@@ -114,13 +114,18 @@ cl::BufferGL *VBOBuffer;
 void renderScene() {
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     if (extractSurfaceOnEveryFrame || extractSurface) {
-        // Delete VBO buffer
         glDeleteBuffers(1, &VBO_ID);
-        /*
-        // For some reason this doesn't work?
-        if(VBOBuffer != NULL)
-        delete VBOBuffer;
-        */
+        
+        if(VBOBuffer != NULL && totalSum > 0) {
+            //try {
+                delete VBOBuffer;
+            /*}catch(cl::Error err) {
+                std::cout << "Delete VBOBuffer failed." << std::endl;
+                extractSurface = false;
+                return;                
+            }*/
+        }
+
         histoPyramidConstruction();
 
         // Read top of histoPyramid an use this size to allocate VBO below
@@ -133,6 +138,7 @@ void renderScene() {
 
         if (totalSum == 0) {
             std::cout << "No triangles were extracted. Check isovalue." << std::endl;
+            extractSurface = false;
             return;
         }
 
@@ -265,12 +271,12 @@ void setupOpenGL(int * argc, char ** argv, int size, int sizeX, int sizeY, int s
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
     case '+':
-        isolevel+=40;
+        isolevel+=10;
         if (!extractSurfaceOnEveryFrame)
             extractSurface = true;
         break;
     case '-':
-        isolevel-=40;
+        isolevel-=10;
         if (!extractSurfaceOnEveryFrame)
             extractSurface = true;
         break;
@@ -388,26 +394,26 @@ void setupOpenCL(short * voxels, int size) {
         }
 
 
-            int bufferSize = SIZE*SIZE*SIZE;
-            buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(char)*bufferSize));
+        int bufferSize = SIZE*SIZE*SIZE;
+        buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(char)*bufferSize));
+        bufferSize /= 8;
+        buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(char)*bufferSize));
+        bufferSize /= 8;
+        buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(short)*bufferSize));
+        bufferSize /= 8;
+        buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(short)*bufferSize));
+        bufferSize /= 8;
+        buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(short)*bufferSize));
+        bufferSize /= 8;
+        for (int i = 5; i < log2((float)SIZE); i++) {
+            buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int)*bufferSize));
             bufferSize /= 8;
-            buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(char)*bufferSize));
-            bufferSize /= 8;
-            buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(short)*bufferSize));
-            bufferSize /= 8;
-            buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(short)*bufferSize));
-            bufferSize /= 8;
-            buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(short)*bufferSize));
-            bufferSize /= 8;
-            for (int i = 5; i < log2((float)SIZE); i++) {
-                buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(int)*bufferSize));
-                bufferSize /= 8;
-            }
+        }
 
-            cubeIndexesBuffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, sizeof(char)*SIZE*SIZE*SIZE);
-            cubeIndexesImage = cl::Image3D(context, CL_MEM_READ_ONLY,
-                cl::ImageFormat(CL_R, CL_UNSIGNED_INT8),
-                SIZE, SIZE, SIZE);
+        cubeIndexesBuffer = cl::Buffer(context, CL_MEM_WRITE_ONLY, sizeof(char)*SIZE*SIZE*SIZE);
+        cubeIndexesImage = cl::Image3D(context, CL_MEM_READ_ONLY,
+            cl::ImageFormat(CL_R, CL_UNSIGNED_INT8),
+            SIZE, SIZE, SIZE);
 
 
         // Transfer dataset to device
@@ -548,14 +554,14 @@ void histoPyramidTraversal(int sum) {
     // Make OpenCL buffer from OpenGL buffer
     unsigned int i = 0;
 
-        traverseHPKernel.setArg(0, rawData);
-        traverseHPKernel.setArg(1, cubeIndexesImage);
-        for (i = 0; i < buffers.size(); i++) {
-            traverseHPKernel.setArg(i + 2, buffers[i]);
-        }
-        i += 2;
+    traverseHPKernel.setArg(0, rawData);
+    traverseHPKernel.setArg(1, cubeIndexesImage);
+    for (i = 0; i < buffers.size(); i++) {
+        traverseHPKernel.setArg(i + 2, buffers[i]);
+    }
+    i += 2;
 
-    VBOBuffer = new cl::BufferGL(context, CL_MEM_WRITE_ONLY, VBO_ID);
+    VBOBuffer = new cl::BufferGL(context, CL_MEM_WRITE_ONLY, VBO_ID); // bug here!
     traverseHPKernel.setArg(i, *VBOBuffer);
     traverseHPKernel.setArg(i + 1, isolevel);
     traverseHPKernel.setArg(i + 2, sum);
