@@ -5,7 +5,7 @@ GLuint VBO_ID = 0;
 cl::Program program;
 cl::CommandQueue queue;
 cl::Context context;
-bool writingTo3DTextures;
+// bool writingTo3DTextures;
 bool extractSurfaceOnEveryFrame;
 bool extractSurface;
 
@@ -125,12 +125,8 @@ void renderScene() {
 
         // Read top of histoPyramid an use this size to allocate VBO below
         int * sum = new int[8];
-        if (writingTo3DTextures) {
-            queue.enqueueReadImage(images[images.size() - 1], CL_FALSE, origin, region, 0, 0, sum);
-        }
-        else {
-            queue.enqueueReadBuffer(buffers[buffers.size() - 1], CL_FALSE, 0, sizeof(int) * 8, sum);
-        }
+
+        queue.enqueueReadBuffer(buffers[buffers.size() - 1], CL_FALSE, 0, sizeof(int) * 8, sum);
 
         queue.finish();
         totalSum = sum[0] + sum[1] + sum[2] + sum[3] + sum[4] + sum[5] + sum[6] + sum[7];
@@ -360,16 +356,8 @@ void setupOpenCL(short * voxels, int size) {
 
         // Check if writing to 3D textures are supported
         std::string sourceFilename;
-        if ((int)devices[0].getInfo<CL_DEVICE_EXTENSIONS>().find("cl_khr_3d_image_writes") > -1) {
-            writingTo3DTextures = true;
-            sourceFilename = "gpu-mc.cl";
-        }
-        else {
-            std::cout << "Writing to 3D textures is not supported on this device. Writing to regular buffers instead." << std::endl;
-            std::cout << "Note that this is a bit slower." << std::endl;
-            writingTo3DTextures = false;
-            sourceFilename = "gpu-mc-morton.cl";
-        }
+
+        sourceFilename = "gpu-mc-morton.cl";
 
         // Read source file
         std::ifstream sourceFile(sourceFilename.c_str());
@@ -399,32 +387,7 @@ void setupOpenCL(short * voxels, int size) {
             throw error;
         }
 
-        if (writingTo3DTextures) {
-            // Create images for the HistogramPyramid
-            int bufferSize = SIZE;
-            // Make the two first buffers use INT8
-            images.push_back(cl::Image3D(context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_RGBA, CL_UNSIGNED_INT8), bufferSize, bufferSize, bufferSize));
-            bufferSize /= 2;
-            images.push_back(cl::Image3D(context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_UNSIGNED_INT8), bufferSize, bufferSize, bufferSize));
-            bufferSize /= 2;
-            // And the third, fourth and fifth INT16
-            images.push_back(cl::Image3D(context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_UNSIGNED_INT16), bufferSize, bufferSize, bufferSize));
-            bufferSize /= 2;
-            images.push_back(cl::Image3D(context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_UNSIGNED_INT16), bufferSize, bufferSize, bufferSize));
-            bufferSize /= 2;
-            images.push_back(cl::Image3D(context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_UNSIGNED_INT16), bufferSize, bufferSize, bufferSize));
-            bufferSize /= 2;
-            // The rest will use INT32
-            for (int i = 5; i < (log2((float)SIZE)); i++) {
-                if (bufferSize == 1)
-                    bufferSize = 2; // Image cant be 1x1x1
-                images.push_back(cl::Image3D(context, CL_MEM_READ_WRITE, cl::ImageFormat(CL_R, CL_UNSIGNED_INT32), bufferSize, bufferSize, bufferSize));
-                bufferSize /= 2;
-            }
 
-            // If writing to 3D textures is not supported we to create buffers to write to 
-        }
-        else {
             int bufferSize = SIZE*SIZE*SIZE;
             buffers.push_back(cl::Buffer(context, CL_MEM_READ_WRITE, sizeof(char)*bufferSize));
             bufferSize /= 8;
@@ -445,7 +408,7 @@ void setupOpenCL(short * voxels, int size) {
             cubeIndexesImage = cl::Image3D(context, CL_MEM_READ_ONLY,
                 cl::ImageFormat(CL_R, CL_UNSIGNED_INT8),
                 SIZE, SIZE, SIZE);
-        }
+
 
         // Transfer dataset to device
         rawData = cl::Image3D(
@@ -462,12 +425,10 @@ void setupOpenCL(short * voxels, int size) {
         classifyCubesKernel = cl::Kernel(program, "classifyCubes");
         traverseHPKernel = cl::Kernel(program, "traverseHP");
 
-        if (!writingTo3DTextures) {
             constructHPLevelCharCharKernel = cl::Kernel(program, "constructHPLevelCharChar");
             constructHPLevelCharShortKernel = cl::Kernel(program, "constructHPLevelCharShort");
             constructHPLevelShortShortKernel = cl::Kernel(program, "constructHPLevelShortShort");
             constructHPLevelShortIntKernel = cl::Kernel(program, "constructHPLevelShortInt");
-        }
 
     }
     catch (cl::Error error) {
@@ -481,123 +442,84 @@ void histoPyramidConstruction() {
 
     updateScalarField();
 
-    if (writingTo3DTextures) {
-        // Run base to first level
-        constructHPLevelKernel.setArg(0, images[0]);
-        constructHPLevelKernel.setArg(1, images[1]);
+    // Run base to first level
+    constructHPLevelCharCharKernel.setArg(0, buffers[0]);
+    constructHPLevelCharCharKernel.setArg(1, buffers[1]);
 
+    queue.enqueueNDRangeKernel(
+        constructHPLevelCharCharKernel,
+        cl::NullRange,
+        cl::NDRange(SIZE / 2, SIZE / 2, SIZE / 2),
+        cl::NullRange
+        );
+
+    int previous = SIZE / 2;
+
+    constructHPLevelCharShortKernel.setArg(0, buffers[1]);
+    constructHPLevelCharShortKernel.setArg(1, buffers[2]);
+
+    queue.enqueueNDRangeKernel(
+        constructHPLevelCharShortKernel,
+        cl::NullRange,
+        cl::NDRange(previous / 2, previous / 2, previous / 2),
+        cl::NullRange
+        );
+
+    previous /= 2;
+
+    constructHPLevelShortShortKernel.setArg(0, buffers[2]);
+    constructHPLevelShortShortKernel.setArg(1, buffers[3]);
+
+    queue.enqueueNDRangeKernel(
+        constructHPLevelShortShortKernel,
+        cl::NullRange,
+        cl::NDRange(previous / 2, previous / 2, previous / 2),
+        cl::NullRange
+        );
+
+    previous /= 2;
+
+    constructHPLevelShortShortKernel.setArg(0, buffers[3]);
+    constructHPLevelShortShortKernel.setArg(1, buffers[4]);
+
+    queue.enqueueNDRangeKernel(
+        constructHPLevelShortShortKernel,
+        cl::NullRange,
+        cl::NDRange(previous / 2, previous / 2, previous / 2),
+        cl::NullRange
+        );
+
+    previous /= 2;
+
+    constructHPLevelShortIntKernel.setArg(0, buffers[4]);
+    constructHPLevelShortIntKernel.setArg(1, buffers[5]);
+
+    queue.enqueueNDRangeKernel(
+        constructHPLevelShortIntKernel,
+        cl::NullRange,
+        cl::NDRange(previous / 2, previous / 2, previous / 2),
+        cl::NullRange
+        );
+
+    previous /= 2;
+
+    // Run level 2 to top level
+    for (int i = 5; i < log2(SIZE) - 1; i++) {
+        constructHPLevelKernel.setArg(0, buffers[i]);
+        constructHPLevelKernel.setArg(1, buffers[i + 1]);
+        previous /= 2;
         queue.enqueueNDRangeKernel(
             constructHPLevelKernel,
             cl::NullRange,
-            cl::NDRange(SIZE / 2, SIZE / 2, SIZE / 2),
+            cl::NDRange(previous, previous, previous),
             cl::NullRange
             );
-
-        int previous = SIZE / 2;
-        // Run level 2 to top level
-        for (int i = 1; i < log2((float)SIZE) - 1; i++) {
-            constructHPLevelKernel.setArg(0, images[i]);
-            constructHPLevelKernel.setArg(1, images[i + 1]);
-            previous /= 2;
-            queue.enqueueNDRangeKernel(
-                constructHPLevelKernel,
-                cl::NullRange,
-                cl::NDRange(previous, previous, previous),
-                cl::NullRange
-                );
-        }
     }
-    else {
-
-        // Run base to first level
-        constructHPLevelCharCharKernel.setArg(0, buffers[0]);
-        constructHPLevelCharCharKernel.setArg(1, buffers[1]);
-
-        queue.enqueueNDRangeKernel(
-            constructHPLevelCharCharKernel,
-            cl::NullRange,
-            cl::NDRange(SIZE / 2, SIZE / 2, SIZE / 2),
-            cl::NullRange
-            );
-
-        int previous = SIZE / 2;
-
-        constructHPLevelCharShortKernel.setArg(0, buffers[1]);
-        constructHPLevelCharShortKernel.setArg(1, buffers[2]);
-
-        queue.enqueueNDRangeKernel(
-            constructHPLevelCharShortKernel,
-            cl::NullRange,
-            cl::NDRange(previous / 2, previous / 2, previous / 2),
-            cl::NullRange
-            );
-
-        previous /= 2;
-
-        constructHPLevelShortShortKernel.setArg(0, buffers[2]);
-        constructHPLevelShortShortKernel.setArg(1, buffers[3]);
-
-        queue.enqueueNDRangeKernel(
-            constructHPLevelShortShortKernel,
-            cl::NullRange,
-            cl::NDRange(previous / 2, previous / 2, previous / 2),
-            cl::NullRange
-            );
-
-        previous /= 2;
-
-        constructHPLevelShortShortKernel.setArg(0, buffers[3]);
-        constructHPLevelShortShortKernel.setArg(1, buffers[4]);
-
-        queue.enqueueNDRangeKernel(
-            constructHPLevelShortShortKernel,
-            cl::NullRange,
-            cl::NDRange(previous / 2, previous / 2, previous / 2),
-            cl::NullRange
-            );
-
-        previous /= 2;
-
-        constructHPLevelShortIntKernel.setArg(0, buffers[4]);
-        constructHPLevelShortIntKernel.setArg(1, buffers[5]);
-
-        queue.enqueueNDRangeKernel(
-            constructHPLevelShortIntKernel,
-            cl::NullRange,
-            cl::NDRange(previous / 2, previous / 2, previous / 2),
-            cl::NullRange
-            );
-
-        previous /= 2;
-
-        // Run level 2 to top level
-        for (int i = 5; i < log2(SIZE) - 1; i++) {
-            constructHPLevelKernel.setArg(0, buffers[i]);
-            constructHPLevelKernel.setArg(1, buffers[i + 1]);
-            previous /= 2;
-            queue.enqueueNDRangeKernel(
-                constructHPLevelKernel,
-                cl::NullRange,
-                cl::NDRange(previous, previous, previous),
-                cl::NullRange
-                );
-        }
-    }
+    
 }
 
 void updateScalarField() {
-    if (writingTo3DTextures) {
-        classifyCubesKernel.setArg(0, images[0]);
-        classifyCubesKernel.setArg(1, rawData);
-        classifyCubesKernel.setArg(2, isolevel);
-        queue.enqueueNDRangeKernel(
-            classifyCubesKernel,
-            cl::NullRange,
-            cl::NDRange(SIZE, SIZE, SIZE),
-            cl::NullRange
-            );
-    }
-    else {
+
         classifyCubesKernel.setArg(0, buffers[0]);
         classifyCubesKernel.setArg(1, cubeIndexesBuffer);
         classifyCubesKernel.setArg(2, rawData);
@@ -620,25 +542,18 @@ void updateScalarField() {
 
         // Copy buffer to image
         queue.enqueueCopyBufferToImage(cubeIndexesBuffer, cubeIndexesImage, 0, offset, region);
-    }
 }
 
 void histoPyramidTraversal(int sum) {
     // Make OpenCL buffer from OpenGL buffer
     unsigned int i = 0;
-    if (writingTo3DTextures) {
-        for (i = 0; i < images.size(); i++) {
-            traverseHPKernel.setArg(i, images[i]);
-        }
-    }
-    else {
+
         traverseHPKernel.setArg(0, rawData);
         traverseHPKernel.setArg(1, cubeIndexesImage);
         for (i = 0; i < buffers.size(); i++) {
             traverseHPKernel.setArg(i + 2, buffers[i]);
         }
         i += 2;
-    }
 
     VBOBuffer = new cl::BufferGL(context, CL_MEM_WRITE_ONLY, VBO_ID);
     traverseHPKernel.setArg(i, *VBOBuffer);
