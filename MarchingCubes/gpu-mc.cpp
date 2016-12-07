@@ -89,7 +89,7 @@ void MarchingCubes::drawFPSCounter(int sum) {
     frame++;
 
     int time = glutGet(GLUT_ELAPSED_TIME);
-    if (time - timebase > 1000) { // 1 times per second
+    if (time - timebase > 100) { // 1 times per second
         sprintf_s(s, "Triangles: %d FPS: %4.2f. Speed: %d ms. Isovalue: %4.3f", sum, frame*1000.0 / (time - timebase), (int)round(time - previousTime), (float)isolevel);
         timebase = time;
         frame = 0;
@@ -179,7 +179,7 @@ void MarchingCubes::renderScene() {
     glScalef(scalingFactor.x, scalingFactor.y, scalingFactor.z); // spacing在这里起作用
     glTranslatef(translation.x, translation.y, translation.z);
 
-    //glRotatef(90.0f, 0.0f, 0.0f, 1.0f);
+    glRotatef(90.0f, 0.0f, 0.0f, 1.0f);
     // Normal Buffer
     glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
     glEnableClientState(GL_VERTEX_ARRAY);
