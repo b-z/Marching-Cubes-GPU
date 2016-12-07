@@ -10,39 +10,31 @@
 int main(int argc, char ** argv) {
 #if 1
     Nii* nii = new Nii;
-    //nii->niiReadImage("Z:/zhoubowei/Documents/VolumeSeg/VolumeSeg/data/test.nii");
-    nii->niiReadImage("Z:/zhoubowei/Documents/VolumeSeg/VolumeSeg/data/101345a.nii.gz");
+    nii->niiReadImage("Z:/zhoubowei/Documents/VolumeSeg/VolumeSeg/data/test.nii");
+    //nii->niiReadImage("Z:/zhoubowei/Documents/VolumeSeg/VolumeSeg/data/101345a.nii.gz");
     nii->niiPrintInfo();
     VolumeData* v = new VolumeData;
     v->fromNii(nii);
 
-    int sizeX = v->nx;
-    int sizeY = v->ny;
-    int sizeZ = v->nz;
+    //int sizeX = v->nx;
+    //int sizeY = v->ny;
+    //int sizeZ = v->nz;
 
-    int stepSizeX = 1;
-    int stepSizeY = 1;
-    int stepSizeZ = 1;
+    //int stepSizeX = 1;
+    //int stepSizeY = 1;
+    //int stepSizeZ = 1;
 
-    float scaleX = v->dx;
-    float scaleY = v->dy;
-    float scaleZ = v->dz;
+    //float scaleX = v->dx;
+    //float scaleY = v->dy;
+    //float scaleZ = v->dz;
 
-    int size_tmp = v->nvox;
-    short* voxels = v->data;
-    //unsigned char* voxels = new unsigned char[size_tmp];
-    //for (int i = 0; i < size_tmp; i++) {
-    //    short d = v->data[i];
-    //    if (d < 0) d = 0;
-    //    if (d > 2000) d = 2000;
-    //    d = float(d) * 255 / 2000;
-    //    voxels[i] = unsigned char(d);
-    //}
-    int size = prepareDataset(&voxels, sizeX / stepSizeX, sizeY / stepSizeY, sizeZ / stepSizeZ);
+    //int size_tmp = v->nvox;
+    //short* voxels = v->data;
 
-    setupOpenGL(&argc, argv, size, sizeX / stepSizeX, sizeY / stepSizeY, sizeZ / stepSizeZ, scaleX, scaleY, scaleZ);
-    setupOpenCL(voxels, size);
-    run();
+    MarchingCubes mc(v, 1000);
+
+    
+    mc.run();
     return 0;
 #else
     // Process arguments

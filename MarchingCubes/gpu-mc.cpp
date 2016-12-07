@@ -1,40 +1,58 @@
 #include "gpu-mc.hpp"
+#include "VolumeData.h"
+#ifndef max
+#define max(a,b) ((a)>(b)?(a):(b))
+#endif
 
-// Define some globals
-GLuint VBO_ID = 0;
-cl::Program program;
-cl::CommandQueue queue;
-cl::Context context;
-// bool writingTo3DTextures;
-bool extractSurfaceOnEveryFrame;
-bool extractSurface;
+MarchingCubes::MarchingCubes(VolumeData* v, int isolevel_) {
+    voxels = v->data;
+    isolevel = isolevel_;
+    VBO_ID = 0;
+    camZ = 4.0f;
+    speed = 0.1f;
+    frame = 0;
+    timebase = 0;
+    previousTime = 0;
+    totalSum = 0;
+    xrot = 0;
+    yrot = 0;
 
-int SIZE;
-int isolevel = 1000;
-int windowWidth, windowHeight;
-int windowID;
+    // size: 2的n次方，将数据变成一个正方体，那个正方体的边长
+    int size = prepareDataset(&voxels, v->nx, v->ny, v->nz);
+    
+    setupOpenGL(size, v->nx, v->ny, v->nz, v->dx, v->dy, v->dz);
+    setupOpenCL(voxels, size);
 
-cl::Image3D rawData;
-cl::Image3D cubeIndexesImage;
-cl::Buffer cubeIndexesBuffer;
-cl::Kernel constructHPLevelKernel;
-cl::Kernel constructHPLevelCharCharKernel;
-cl::Kernel constructHPLevelCharShortKernel;
-cl::Kernel constructHPLevelShortShortKernel;
-cl::Kernel constructHPLevelShortIntKernel;
-cl::Kernel classifyCubesKernel;
-cl::Kernel traverseHPKernel;
-std::vector<cl::Image3D> images;
-std::vector<cl::Buffer> buffers;
+}
 
-Sizef scalingFactor;
-Sizef translation;
+MarchingCubes::~MarchingCubes() {
 
-float camX, camY, camZ = 4.0f; //X, Y, and Z
-float lastx, lasty, xrot, yrot, xrotrad, yrotrad; //Last pos and rotation
-float speed = 0.1f; //Movement speed
+}
 
-                    // Some functions missing in windows
+
+MarchingCubes* currentInstance;
+
+void renderSceneCallback() {
+    currentInstance->renderScene();
+}
+void idleCallback() {
+    currentInstance->idle();
+}
+void reshapeCallback(int width, int height) {
+    currentInstance->reshape(width, height);
+}
+void keyboardCallback(unsigned char key, int x, int y) {
+    currentInstance->keyboard(key, x, y);
+}
+void mouseMovementCallback(int x, int y) {
+    currentInstance->mouseMovement(x, y);
+}
+
+
+
+
+
+// Some functions missing in windows
 inline double log2(double x) {
     return log(x) / log(2.0);
 }
@@ -43,7 +61,7 @@ inline double round(double d) {
     return floor(d + 0.5);
 }
 
-void mouseMovement(int x, int y) {
+void MarchingCubes::mouseMovement(int x, int y) {
     int cx = windowWidth / 2;
     int cy = windowHeight / 2;
 
@@ -58,7 +76,7 @@ void mouseMovement(int x, int y) {
     glutWarpPointer(cx, cy); //Bring the cursor to the middle
 }
 
-void renderBitmapString(float x, float y, void *font, char *string) {
+void MarchingCubes::renderBitmapString(float x, float y, void *font, char *string) {
     char *c;
     glRasterPos2f(x, y);
     for (c = string; *c != '\0'; c++) {
@@ -66,11 +84,8 @@ void renderBitmapString(float x, float y, void *font, char *string) {
     }
 }
 
-int frame = 0;
-int timebase = 0;
-char s[100];
-int previousTime = 0;
-void drawFPSCounter(int sum) {
+
+void MarchingCubes::drawFPSCounter(int sum) {
     frame++;
 
     int time = glutGet(GLUT_ELAPSED_TIME);
@@ -95,11 +110,11 @@ void drawFPSCounter(int sum) {
     glEnable(GL_DEPTH_TEST);
 }
 
-void idle() {
+void MarchingCubes::idle() {
     glutPostRedisplay();
 }
 
-void reshape(int width, int height) {
+void MarchingCubes::reshape(int width, int height) {
     windowWidth = width;
     windowHeight = height;
     glMatrixMode(GL_PROJECTION);
@@ -107,23 +122,14 @@ void reshape(int width, int height) {
     glViewport(0, 0, width, height);
     gluPerspective(45.0f, (GLfloat)width / (GLfloat)height, 0.5f, 10.0f);
 }
-cl::size_t<3> origin;
-cl::size_t<3> region;
-int totalSum;
-cl::BufferGL *VBOBuffer;
-void renderScene() {
+
+void MarchingCubes::renderScene() {
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     if (extractSurfaceOnEveryFrame || extractSurface) {
         glDeleteBuffers(1, &VBO_ID);
         
         if(VBOBuffer != NULL && totalSum > 0) {
-            //try {
-                delete VBOBuffer;
-            /*}catch(cl::Error err) {
-                std::cout << "Delete VBOBuffer failed." << std::endl;
-                extractSurface = false;
-                return;                
-            }*/
+            delete VBOBuffer;
         }
 
         histoPyramidConstruction();
@@ -204,24 +210,26 @@ void renderScene() {
     extractSurface = false;
 }
 
-void run() {
+void MarchingCubes::run() {
     glutMainLoop();
 }
 
-void setupOpenGL(int * argc, char ** argv, int size, int sizeX, int sizeY, int sizeZ, float spacingX, float spacingY, float spacingZ) {
+void MarchingCubes::setupOpenGL(int size, int sizeX, int sizeY, int sizeZ, float spacingX, float spacingY, float spacingZ) {
+    currentInstance = this; // see http://stackoverflow.com/questions/3589422/using-opengl-glutdisplayfunc-within-class
+    
     /* Initialize GLUT */
-    glutInit(argc, argv);
+    //glutInit(argc, argv);
     glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
     glutInitWindowPosition(0, 0);
     //glutInitWindowSize(glutGet(GLUT_SCREEN_WIDTH),glutGet(GLUT_SCREEN_HEIGHT));
     glutInitWindowSize(800, 800);
     windowID = glutCreateWindow("GPU Marching Cubes");
     //glutFullScreen();	
-    glutDisplayFunc(renderScene);
-    glutIdleFunc(idle);
-    glutReshapeFunc(reshape);
-    glutKeyboardFunc(keyboard);
-    glutMotionFunc(mouseMovement);
+    glutDisplayFunc(renderSceneCallback);
+    glutIdleFunc(idleCallback);
+    glutReshapeFunc(reshapeCallback);
+    glutKeyboardFunc(keyboardCallback);
+    glutMotionFunc(mouseMovementCallback);
 
     glewInit();
     glEnable(GL_NORMALIZE);
@@ -268,7 +276,7 @@ void setupOpenGL(int * argc, char ** argv, int size, int sizeX, int sizeY, int s
     extractSurfaceOnEveryFrame = false;
 }
 
-void keyboard(unsigned char key, int x, int y) {
+void MarchingCubes::keyboard(unsigned char key, int x, int y) {
     switch (key) {
     case '+':
         isolevel+=10;
@@ -304,11 +312,11 @@ void keyboard(unsigned char key, int x, int y) {
     }
 }
 
-int max(int a, int b) {
-    return a > b ? a : b;
-}
+//int max(int a, int b) {
+//    return a > b ? a : b;
+//}
 
-int prepareDataset(short ** voxels, int sizeX, int sizeY, int sizeZ) {
+int MarchingCubes::prepareDataset(short ** voxels, int sizeX, int sizeY, int sizeZ) {
     // If all equal and power of two exit
     if (sizeX == sizeY && sizeY == sizeZ && sizeX == pow(2, log2(sizeX)))
         return sizeX;
@@ -348,7 +356,7 @@ inline std::string to_string(const T& t) {
     return ss.str();
 }
 
-void setupOpenCL(short * voxels, int size) {
+void MarchingCubes::setupOpenCL(short * voxels, int size) {
     SIZE = size;
     try {
         // Create a context that use a GPU and OpenGL interop.
@@ -444,7 +452,7 @@ void setupOpenCL(short * voxels, int size) {
 }
 
 
-void histoPyramidConstruction() {
+void MarchingCubes::histoPyramidConstruction() {
 
     updateScalarField();
 
@@ -524,7 +532,7 @@ void histoPyramidConstruction() {
     
 }
 
-void updateScalarField() {
+void MarchingCubes::updateScalarField() {
 
         classifyCubesKernel.setArg(0, buffers[0]);
         classifyCubesKernel.setArg(1, cubeIndexesBuffer);
@@ -550,7 +558,7 @@ void updateScalarField() {
         queue.enqueueCopyBufferToImage(cubeIndexesBuffer, cubeIndexesImage, 0, offset, region);
 }
 
-void histoPyramidTraversal(int sum) {
+void MarchingCubes::histoPyramidTraversal(int sum) {
     // Make OpenCL buffer from OpenGL buffer
     unsigned int i = 0;
 
