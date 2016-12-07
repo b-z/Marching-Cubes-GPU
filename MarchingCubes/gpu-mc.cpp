@@ -149,6 +149,11 @@ void MarchingCubes::renderScene() {
         }
 
         // Create new VBO
+
+        /*
+        VBO_ID: opengl的缓存编号
+        VBOBuffer: opencl的缓存
+        */
         glGenBuffers(1, &VBO_ID);
         glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
         glBufferData(GL_ARRAY_BUFFER, totalSum * 18 * sizeof(cl_float), NULL, GL_STATIC_DRAW);
@@ -171,10 +176,10 @@ void MarchingCubes::renderScene() {
 
     glPushMatrix();
     glColor3f(1.0f, 1.0f, 1.0f);
-    glScalef(scalingFactor.x, scalingFactor.y, scalingFactor.z);
+    glScalef(scalingFactor.x, scalingFactor.y, scalingFactor.z); // spacing在这里起作用
     glTranslatef(translation.x, translation.y, translation.z);
 
-    glRotatef(90.0f, 0.0f, 0.0f, 1.0f);
+    //glRotatef(90.0f, 0.0f, 0.0f, 1.0f);
     // Normal Buffer
     glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
     glEnableClientState(GL_VERTEX_ARRAY);
@@ -569,7 +574,7 @@ void MarchingCubes::histoPyramidTraversal(int sum) {
     }
     i += 2;
 
-    VBOBuffer = new cl::BufferGL(context, CL_MEM_WRITE_ONLY, VBO_ID); // bug here!
+    VBOBuffer = new cl::BufferGL(context, CL_MEM_WRITE_ONLY, VBO_ID); // bug here! ---fixed
     traverseHPKernel.setArg(i, *VBOBuffer);
     traverseHPKernel.setArg(i + 1, isolevel);
     traverseHPKernel.setArg(i + 2, sum);
