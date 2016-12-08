@@ -35,6 +35,23 @@ typedef struct {
     float x, y, z;
 } MCSizef;
 
+#include "vtkOpenGLPolyDataMapper.h"
+#include "vtkOpenGLVertexBufferObject.h"
+class vtkOpenGLPolyDataMapper_ 
+    :public vtkOpenGLPolyDataMapper
+{
+public:
+    vtkOpenGLPolyDataMapper_()
+        :vtkOpenGLPolyDataMapper()
+    {
+
+    }
+    ~vtkOpenGLPolyDataMapper_(){}
+    vtkOpenGLVertexBufferObject* GetVBO() {
+        return this->VBO;
+    }
+};
+
 class MarchingCubes {
 public:
     MarchingCubes(VolumeData* v, int isolevel_);
@@ -57,6 +74,9 @@ public:
     void histoPyramidTraversal(int sum);
 
     //char * getCLErrorString(cl_int error);
+
+    void test();
+    void printError(std::string text = "");
 
 private:
     //static MarchingCubes* currentInstance;
@@ -123,6 +143,11 @@ public:
     short* voxels;
     int isolevel;
 
+    GLuint test_handle;
+    vtkActor* actor;
+    vtkRenderWindow * renWin;
+
+    cl_mem* test_buffer;
 };
 
 

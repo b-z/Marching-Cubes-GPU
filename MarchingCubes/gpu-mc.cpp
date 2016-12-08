@@ -1,13 +1,107 @@
+﻿#include <vtkAutoInit.h> 
+VTK_MODULE_INIT(vtkRenderingOpenGL2)
+#include "vtkCylinderSource.h"
+#include "vtkPolyDataMapper.h"
+#include "vtkActor.h"
+#include "vtkRenderer.h"
+#include "vtkRenderWindow.h"
+#include "vtkRenderWindowInteractor.h"
+#include "vtkProperty.h"
+#include "vtkCamera.h"
+#include "vtkOutputWindow.h"
+#include "vtkFileOutputWindow.h"
+#include "Windows.h"
+
+#include "Wingdi.h"
+    /// test
+
+#include "vtkOpenGLPolyDataMapper.h"
+#include "vtkOpenGLVertexBufferObject.h"
+
+
+
 #include "gpu-mc.hpp"
 #include "VolumeData.h"
 #ifndef max
 #define max(a,b) ((a)>(b)?(a):(b))
 #endif
 
+    BOOL WriteBitmapFile(char * filename,int width,int height,unsigned char * bitmapData)
+{
+    //Ìî³äBITMAPFILEHEADER
+    BITMAPFILEHEADER bitmapFileHeader;
+    memset(&bitmapFileHeader,0,sizeof(BITMAPFILEHEADER));
+    bitmapFileHeader.bfSize = sizeof(BITMAPFILEHEADER);
+    bitmapFileHeader.bfType = 0x4d42;	//BM
+    bitmapFileHeader.bfOffBits =sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
+
+    //Ìî³äBITMAPINFOHEADER
+    BITMAPINFOHEADER bitmapInfoHeader;
+    memset(&bitmapInfoHeader,0,sizeof(BITMAPINFOHEADER));
+    bitmapInfoHeader.biSize = sizeof(BITMAPINFOHEADER);
+    bitmapInfoHeader.biWidth = width;
+    bitmapInfoHeader.biHeight = height;
+    bitmapInfoHeader.biPlanes = 1;
+    bitmapInfoHeader.biBitCount = 24;
+    bitmapInfoHeader.biCompression = BI_RGB;
+    bitmapInfoHeader.biSizeImage = width * abs(height) * 3;
+
+    //////////////////////////////////////////////////////////////////////////
+    FILE * filePtr;			//Á¬½ÓÒª±£´æµÄbitmapÎÄ¼þÓÃ
+    unsigned char tempRGB;	//ÁÙÊ±É«ËØ
+    int imageIdx;
+
+    //½»»»R¡¢BµÄÏñËØÎ»ÖÃ,bitmapµÄÎÄ¼þ·ÅÖÃµÄÊÇBGR,ÄÚ´æµÄÊÇRGB
+    for (imageIdx = 0;imageIdx < bitmapInfoHeader.biSizeImage;imageIdx +=3)
+    {
+        tempRGB = bitmapData[imageIdx];
+        bitmapData[imageIdx] = bitmapData[imageIdx + 2];
+        bitmapData[imageIdx + 2] = tempRGB;
+    }
+
+    filePtr = fopen(filename,"wb");
+    if (NULL == filePtr)
+    {
+        return FALSE;
+    }
+
+    fwrite(&bitmapFileHeader,sizeof(BITMAPFILEHEADER),1,filePtr);
+
+    fwrite(&bitmapInfoHeader,sizeof(BITMAPINFOHEADER),1,filePtr);
+
+    fwrite(bitmapData,bitmapInfoHeader.biSizeImage,1,filePtr);
+
+    fclose(filePtr);
+    return TRUE;
+}
+
+void saveScreenShot()  
+{  
+    int clnWidth,clnHeight; //client width and height  
+    static void * screenData;  
+    RECT rc;  
+    int len = 800 * 800 * 3;  
+    screenData = malloc(len);  
+    memset(screenData,0,len);  
+    glReadPixels(0, 0, 800, 800, GL_RGB, GL_UNSIGNED_BYTE, screenData);  
+
+    //生成文件名字符串，以时间命名  
+    time_t tm = 0;  
+    tm = time(NULL);  
+    char lpstrFilename[256] = "hehe.bmp";  
+    //sprintf_s(lpstrFilename,sizeof(lpstrFilename),"%d.bmp",tm);  
+
+    WriteBitmapFile(lpstrFilename,800,800,(unsigned char*)screenData);  
+    //释放内存  
+    free(screenData);  
+}
+
+
 MarchingCubes::MarchingCubes(VolumeData* v, int isolevel_) {
     voxels = v->data;
     isolevel = isolevel_;
     VBO_ID = 0;
+    test_handle = 0;
     camZ = 4.0f;
     speed = 0.1f;
     frame = 0;
@@ -16,13 +110,15 @@ MarchingCubes::MarchingCubes(VolumeData* v, int isolevel_) {
     totalSum = 0;
     xrot = 0;
     yrot = 0;
+    test_buffer = NULL;
 
-    // size: 2��n�η��������ݱ��һ�������壬�Ǹ�������ı߳�
+    // size: 2的n次方，将数据变成一个正方体，那个正方体的边长
     int size = prepareDataset(&voxels, v->nx, v->ny, v->nz);
     
     setupOpenGL(size, v->nx, v->ny, v->nz, v->dx, v->dy, v->dz);
+    
     setupOpenCL(voxels, size);
-
+    //test();
 }
 
 MarchingCubes::~MarchingCubes() {
@@ -126,7 +222,9 @@ void MarchingCubes::reshape(int width, int height) {
 void MarchingCubes::renderScene() {
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     if (extractSurfaceOnEveryFrame || extractSurface) {
+        //delete test_buffer;
         glDeleteBuffers(1, &VBO_ID);
+        //glDeleteBuffers(1, &test_handle);
         
         if(VBOBuffer != NULL && totalSum > 0) {
             delete VBOBuffer;
@@ -151,17 +249,22 @@ void MarchingCubes::renderScene() {
         // Create new VBO
 
         /*
-        VBO_ID: opengl�Ļ�����
-        VBOBuffer: opencl�Ļ���
+        VBO_ID: opengl的缓存编号
+        VBOBuffer: opencl的缓存
         */
+        //glGenBuffers(1, &test_handle);
         glGenBuffers(1, &VBO_ID);
+        //glBindBuffer(GL_ARRAY_BUFFER, test_handle);
         glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
         glBufferData(GL_ARRAY_BUFFER, totalSum * 18 * sizeof(cl_float), NULL, GL_STATIC_DRAW);
+        //test_buffer = new cl_float[totalSum * 18];
+        //test_buffer = (cl_mem*)malloc(totalSum * 18 * sizeof(cl_float));
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         // Traverse the histoPyramid and fill VBO
         histoPyramidTraversal(totalSum);
         queue.flush();
+        //actor->Modified();
     }
 
     // Render VBO
@@ -176,12 +279,13 @@ void MarchingCubes::renderScene() {
 
     glPushMatrix();
     glColor3f(1.0f, 1.0f, 1.0f);
-    glScalef(scalingFactor.x, scalingFactor.y, scalingFactor.z); // spacing������������
+    glScalef(scalingFactor.x, scalingFactor.y, scalingFactor.z); // spacing在这里起作用
     glTranslatef(translation.x, translation.y, translation.z);
 
     glRotatef(90.0f, 0.0f, 0.0f, 1.0f);
     // Normal Buffer
     glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
+    //glBindBuffer(GL_ARRAY_BUFFER, test_handle);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
 
@@ -213,6 +317,8 @@ void MarchingCubes::renderScene() {
 
     glutSwapBuffers();
     extractSurface = false;
+    //renWin->Render();
+
 }
 
 void MarchingCubes::run() {
@@ -235,6 +341,7 @@ void MarchingCubes::setupOpenGL(int size, int sizeX, int sizeY, int sizeZ, float
     glutReshapeFunc(reshapeCallback);
     glutKeyboardFunc(keyboardCallback);
     glutMotionFunc(mouseMovementCallback);
+
 
     glewInit();
     glEnable(GL_NORMALIZE);
@@ -279,6 +386,9 @@ void MarchingCubes::setupOpenGL(int size, int sizeX, int sizeY, int sizeZ, float
 
     extractSurface = true;
     extractSurfaceOnEveryFrame = false;
+
+    //test();
+
 }
 
 void MarchingCubes::keyboard(unsigned char key, int x, int y) {
@@ -444,10 +554,10 @@ void MarchingCubes::setupOpenCL(short * voxels, int size) {
         classifyCubesKernel = cl::Kernel(program, "classifyCubes");
         traverseHPKernel = cl::Kernel(program, "traverseHP");
 
-            constructHPLevelCharCharKernel = cl::Kernel(program, "constructHPLevelCharChar");
-            constructHPLevelCharShortKernel = cl::Kernel(program, "constructHPLevelCharShort");
-            constructHPLevelShortShortKernel = cl::Kernel(program, "constructHPLevelShortShort");
-            constructHPLevelShortIntKernel = cl::Kernel(program, "constructHPLevelShortInt");
+        constructHPLevelCharCharKernel = cl::Kernel(program, "constructHPLevelCharChar");
+        constructHPLevelCharShortKernel = cl::Kernel(program, "constructHPLevelCharShort");
+        constructHPLevelShortShortKernel = cl::Kernel(program, "constructHPLevelShortShort");
+        constructHPLevelShortIntKernel = cl::Kernel(program, "constructHPLevelShortInt");
 
     }
     catch (cl::Error error) {
@@ -575,6 +685,10 @@ void MarchingCubes::histoPyramidTraversal(int sum) {
     i += 2;
 
     VBOBuffer = new cl::BufferGL(context, CL_MEM_WRITE_ONLY, VBO_ID); // bug here! ---fixed
+    //VBOBuffer = new cl::BufferGL(context, CL_MEM_WRITE_ONLY, test_handle); // bug here! ---fixed
+    //VBOBuffer = new cl::BufferGL(*test_buffer);
+
+
     traverseHPKernel.setArg(i, *VBOBuffer);
     traverseHPKernel.setArg(i + 1, isolevel);
     traverseHPKernel.setArg(i + 2, sum);
@@ -597,3 +711,150 @@ void MarchingCubes::histoPyramidTraversal(int sum) {
     //	traversalSync = glCreateSyncFromCLeventARB((cl_context)context(), (cl_event)traversalEvent(), 0); // Need the GL_ARB_cl_event extension
     queue.flush();
 }
+
+struct MyVertex
+{
+    float x, y, z;        //Vertex
+    float nx, ny, nz;     //Normal
+    float s0, t0;         //Texcoord0
+};
+
+void MarchingCubes::printError(std::string text){
+    if(text!="")
+        std::cout<<text<<":";
+    GLenum error = glGetError();
+    switch(error){
+    case GL_NO_ERROR:
+        printf("No error: No error has been recorded\n");break;
+    case GL_INVALID_ENUM:
+        printf("Invalid enum: An unacceptable enum value\n");break;
+    case GL_INVALID_VALUE:
+        printf("InvaliD value: A number is out of range\n");break;
+    case GL_INVALID_OPERATION:
+        printf("Invalid operation: The specified operation is not allowed in the current state\n");break;
+    case GL_INVALID_FRAMEBUFFER_OPERATION:
+        printf("Invalid framebuffer operation: The framebuffer object is not complete\n");break;
+    case GL_OUT_OF_MEMORY:
+        printf("Out of memory: There is not enough memory left to execute the command\n");break;
+    case GL_STACK_UNDERFLOW:
+        printf("Stack underflow: An attempt has been made to perform an operation that would cause an internal stack to underflow");break;
+    case GL_STACK_OVERFLOW:
+        printf("Stack overflow: An attempt has been made to perform an operation that would cause an internal stack to overflow\n");break;
+    }
+}
+
+
+
+void MarchingCubes::test() {
+/*
+    vtkSmartPointer<vtkFileOutputWindow> w = vtkSmartPointer<vtkFileOutputWindow>::New();
+    w->SetFileName("vtk_errors.txt");
+    vtkOutputWindow::SetInstance(w);
+
+    /////////////////////////////////////////////////////////////
+
+
+    vtkRenderer *ren1 = vtkRenderer::New();
+
+    renWin = vtkRenderWindow::New();
+    renWin->AddRenderer(ren1);
+    vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
+
+    iren->SetRenderWindow(renWin);
+
+    //ren1->AddActor(actor);
+    //ren1->AddActor(cylinderActor);
+    ren1->SetBackground(0.1, 0.2, 0.4);
+    renWin->SetSize(600, 600);
+
+    ren1->ResetCamera();
+    ren1->GetActiveCamera()->Zoom(1.5);
+
+
+    //renWin->MakeCurrent();
+
+
+    vtkCylinderSource *cylinder = vtkCylinderSource::New();
+    cylinder->SetResolution(8);
+
+    vtkPolyDataMapper *cylinderMapper = vtkPolyDataMapper::New();
+    cylinderMapper->SetInputConnection(cylinder->GetOutputPort());
+
+    vtkActor *cylinderActor = vtkActor::New();
+    cylinderActor->SetMapper(cylinderMapper);
+    cylinderActor->GetProperty()->SetColor(1.0000, 0.3882, 0.2784);
+    cylinderActor->RotateX(30.0);
+    cylinderActor->RotateY(-45.0);
+
+        printError();
+    //////////////////////////////////////////////////////////////////////////
+    vtkOpenGLPolyDataMapper_* opm = new vtkOpenGLPolyDataMapper_;
+    vtkOpenGLVertexBufferObject* vbo = opm->GetVBO();
+
+    //vbo->GenerateBuffer(vtkOpenGLVertexBufferObject::ArrayBuffer);
+    printError();
+    test_handle = vbo->GetHandle();
+    if (!test_handle) {
+        glGenBuffers(1, &test_handle);        
+    }
+    //vbo->Bind();
+    printError();
+      
+    glBindBuffer(GL_ARRAY_BUFFER, test_handle);
+    printError();
+
+    MyVertex pvertex[3];
+    //VERTEX 0
+    pvertex[0].x = 0.0;
+    pvertex[0].y = 0.0;
+    pvertex[0].z = 0.0;
+    pvertex[0].nx = 0.0;
+    pvertex[0].ny = 0.0;
+    pvertex[0].nz = 1.0;
+    pvertex[0].s0 = 0.0;
+    pvertex[0].t0 = 0.0;
+    //VERTEX 1
+    pvertex[1].x = 1.0;
+    pvertex[1].y = 0.0;
+    pvertex[1].z = 0.0;
+    pvertex[1].nx = 0.0;
+    pvertex[1].ny = 0.0;
+    pvertex[1].nz = 1.0;
+    pvertex[1].s0 = 1.0;
+    pvertex[1].t0 = 0.0;
+    //VERTEX 2
+    pvertex[2].x = 0.0;
+    pvertex[2].y = 1.0;
+    pvertex[2].z = 0.0;
+    pvertex[2].nx = 0.0;
+    pvertex[2].ny = 0.0;
+    pvertex[2].nz = 1.0;
+    pvertex[2].s0 = 0.0;
+    pvertex[2].t0 = 1.0;
+
+
+    //glBufferData(GL_ARRAY_BUFFER, sizeof(MyVertex)*3, &pvertex[0].x, GL_STATIC_DRAW);
+    glClearColor(1,0,0,1);
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    glPointSize(10);
+    glColor3f(0.0,1.0,1.0);
+    glBegin(GL_POINTS);
+    glVertex3f(0.0,0.0,0.0);
+    //glDrawArrays(GL_TRIANGLES,test_handle,3);
+    glEnd();
+    glFinish();
+    saveScreenShot();
+    printError();
+
+    actor = vtkActor::New();
+    actor->SetMapper(opm);
+    
+    //////////////////////////////////////////////////////////////////////////
+
+
+
+    renWin->Render();
+
+    */
+}
+

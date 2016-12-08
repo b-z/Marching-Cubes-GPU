@@ -1,0 +1,4 @@
+Warning: In ..\..\..\VTK-7.0.0\Rendering\Core\vtkInteractorStyleSwitchBase.cxx, line 43
+vtkInteractorStyleSwitchBase (0000000002FD9090): Warning: Link to vtkInteractionStyle for default style selection.
+
+

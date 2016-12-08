@@ -35,6 +35,7 @@ int main(int argc, char ** argv) {
 
     
     mc.run();
+
     return 0;
 #else
     // Process arguments
