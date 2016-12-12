@@ -11,9 +11,7 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 #include "vtkOutputWindow.h"
 #include "vtkFileOutputWindow.h"
 #include "Windows.h"
-
 #include "Wingdi.h"
-
 #include "vtkOpenGLPolyDataMapper.h"
 #include "vtkOpenGLVertexBufferObject.h"
 #include "vtkFloatArray.h"
@@ -29,7 +27,29 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 #ifndef max
 #define max(a,b) ((a)>(b)?(a):(b))
 #endif
+#ifndef VSP
+#define VSP vtkSmartPointer
+#endif
 
+
+#include <sstream>
+
+template <class T>
+inline std::string to_string(const T& t) {
+    std::stringstream ss;
+    ss << t;
+    return ss.str();
+}
+
+
+// Some functions missing in windows
+inline double log2(double x) {
+    return log(x) / log(2.0);
+}
+
+inline double round(double d) {
+    return floor(d + 0.5);
+}
 
 MarchingCubes::MarchingCubes(VolumeData* v, int isolevel_) {
     voxels = v->data;
@@ -85,14 +105,6 @@ void mouseMovementCallback(int x, int y) {
 
 
 
-// Some functions missing in windows
-inline double log2(double x) {
-    return log(x) / log(2.0);
-}
-
-inline double round(double d) {
-    return floor(d + 0.5);
-}
 
 void MarchingCubes::setupVTK() {
     vtkSmartPointer<vtkFileOutputWindow> w = vtkSmartPointer<vtkFileOutputWindow>::New();
@@ -428,14 +440,7 @@ int MarchingCubes::prepareDataset(short ** voxels, int sizeX, int sizeY, int siz
     return size;
 }
 
-#include <sstream>
 
-template <class T>
-inline std::string to_string(const T& t) {
-    std::stringstream ss;
-    ss << t;
-    return ss.str();
-}
 
 void MarchingCubes::setupOpenCL(short * voxels, int size) {
     SIZE = size;
@@ -531,7 +536,6 @@ void MarchingCubes::setupOpenCL(short * voxels, int size) {
         std::cout << getCLErrorString(error.err()) << std::endl;
     }
 }
-
 
 void MarchingCubes::histoPyramidConstruction() {
 
@@ -679,10 +683,7 @@ void MarchingCubes::histoPyramidTraversal(int sum) {
 }
 
 void MarchingCubes::test() {
-
-
-
-    vtkFloatArray* pcoords = vtkFloatArray::New();
+    VSP<vtkFloatArray> pcoords = VSP<vtkFloatArray>::New();
 
     pcoords->SetNumberOfComponents(3);
 
