@@ -27,9 +27,7 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 #ifndef max
 #define max(a,b) ((a)>(b)?(a):(b))
 #endif
-#ifndef VSP
-#define VSP vtkSmartPointer
-#endif
+
 
 
 #include <sstream>
@@ -107,29 +105,29 @@ void mouseMovementCallback(int x, int y) {
 
 
 void MarchingCubes::setupVTK() {
-    vtkSmartPointer<vtkFileOutputWindow> w = vtkSmartPointer<vtkFileOutputWindow>::New();
+    VSP<vtkFileOutputWindow> w = VSP<vtkFileOutputWindow>::New();
     w->SetFileName("vtk_errors.txt");
     vtkOutputWindow::SetInstance(w);
 
-    m_render_window = vtkRenderWindow::New();
-    m_renderer = vtkRenderer::New();
+    m_render_window = VSP<vtkRenderWindow>::New();
+    m_renderer = VSP<vtkRenderer>::New();
 
     m_render_window->AddRenderer(m_renderer);
-    vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
+    VSP<vtkRenderWindowInteractor> iren = VSP<vtkRenderWindowInteractor>::New();
     iren->SetRenderWindow(m_render_window);
-    vtkInteractorStyleTrackballCamera* t = vtkInteractorStyleTrackballCamera::New();
+    VSP<vtkInteractorStyleTrackballCamera> t = VSP<vtkInteractorStyleTrackballCamera>::New();
     iren->SetInteractorStyle(t);
 
 
 
-    m_isoactor = vtkActor::New();
+    m_isoactor = VSP<vtkActor>::New();
     m_renderer->AddActor(m_isoactor);
 
 
     m_renderer->SetBackground(0.1, 0.2, 0.4);
     m_render_window->SetSize(600, 600);
 
-    m_polys = vtkCellArray::New();
+    m_polys = VSP<vtkCellArray>::New();
 
 
 }
@@ -689,10 +687,11 @@ void MarchingCubes::test() {
 
 
     pcoords->SetArray(test_buffer, totalSum*18, true);
-    vtkPoints* points = vtkPoints::New();
+    VSP<vtkPoints> points = VSP<vtkPoints>::New();
     points->SetData(pcoords);
 
     m_polys->Initialize();
+
     for (int i=0;i<totalSum;i++){
         m_polys->InsertNextCell(3);
         m_polys->InsertCellPoint(i*6);
@@ -700,10 +699,10 @@ void MarchingCubes::test() {
         m_polys->InsertCellPoint(i*6+4);
     }
 
-    vtkPolyData* polydata = vtkPolyData::New();
+    VSP<vtkPolyData> polydata = VSP<vtkPolyData>::New();
     polydata->SetPoints(points);
     polydata->SetPolys(m_polys);
-    vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
+    VSP<vtkPolyDataMapper> mapper = VSP<vtkPolyDataMapper>::New();
     mapper->SetInputData(polydata);
     
     m_isoactor->SetMapper(mapper);

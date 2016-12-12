@@ -22,6 +22,10 @@
 //typedef unsigned int uint;
 //typedef unsigned char uchar;
 
+#ifndef VSP
+#define VSP vtkSmartPointer
+#endif
+
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
 
 
@@ -124,12 +128,11 @@ public:
 public:
     short* voxels;
     int isolevel;
-
     GLuint test_handle;
-    vtkActor* m_isoactor;
-    vtkRenderWindow * m_render_window;
-    vtkCellArray* m_polys;
-    vtkRenderer* m_renderer;
+    VSP<vtkActor> m_isoactor;
+    VSP<vtkRenderWindow> m_render_window;
+    VSP<vtkCellArray> m_polys;
+    VSP<vtkRenderer> m_renderer;
 
     cl_float* test_buffer;
     int buffer_size;
