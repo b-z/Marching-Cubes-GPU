@@ -182,6 +182,12 @@ void MarchingCubes::setupVTK() {
     m_isoactor = vtkActor::New();
     m_renderer->AddActor(m_isoactor);
 
+
+    m_renderer->SetBackground(0.1, 0.2, 0.4);
+    m_render_window->SetSize(600, 600);
+
+    m_strips = vtkCellArray::New();
+
 }
 
 void MarchingCubes::mouseMovement(int x, int y) {
@@ -787,7 +793,6 @@ void MarchingCubes::test() {
     vtkPoints* points = vtkPoints::New();
     points->SetData(pcoords);
 
-    m_strips = vtkCellArray::New();
     for (int i=0;i<n;i++){
         
         m_strips->InsertNextCell(3);
@@ -795,19 +800,7 @@ void MarchingCubes::test() {
         m_strips->InsertCellPoint(i*6+2);
         m_strips->InsertCellPoint(i*6+4);
     }
-    vtkIntArray* temperature = vtkIntArray::New();
-    temperature->SetName("Temperature");
-    temperature->InsertNextValue(10);
-    temperature->InsertNextValue(20);
-    temperature->InsertNextValue(30);
-    temperature->InsertNextValue(40);
 
-    vtkDoubleArray* vorticity = vtkDoubleArray::New();
-    vorticity->SetName("Vorticity");
-    vorticity->InsertNextValue(2.7);
-    vorticity->InsertNextValue(4.1);
-    vorticity->InsertNextValue(5.3);
-    vorticity->InsertNextValue(3.4);
 
     vtkPolyData* polydata = vtkPolyData::New();
     polydata->SetPoints(points);
@@ -818,11 +811,8 @@ void MarchingCubes::test() {
     m_isoactor->SetMapper(mapper);
 
 
-    m_renderer->SetBackground(0.1, 0.2, 0.4);
-    m_render_window->SetSize(600, 600);
-
     m_renderer->ResetCamera();
-    m_renderer->GetActiveCamera()->Zoom(1.5);
+    //m_renderer->GetActiveCamera()->Zoom(1.5);
 
     m_render_window->Render();
 
