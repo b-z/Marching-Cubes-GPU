@@ -8,6 +8,10 @@
 #if defined(__APPLE__) || defined(__MACOSX)
 #include <OpenCL/cl.hpp>
 #else
+#if defined(_MSC_VER)
+#undef _MSC_VER
+#define _MSC_VER 1600
+#endif
 #include <CL/cl.hpp>
 #endif
 
