@@ -30,76 +30,6 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 #define max(a,b) ((a)>(b)?(a):(b))
 #endif
 
-    BOOL WriteBitmapFile(char * filename,int width,int height,unsigned char * bitmapData)
-{
-    //Ìî³äBITMAPFILEHEADER
-    BITMAPFILEHEADER bitmapFileHeader;
-    memset(&bitmapFileHeader,0,sizeof(BITMAPFILEHEADER));
-    bitmapFileHeader.bfSize = sizeof(BITMAPFILEHEADER);
-    bitmapFileHeader.bfType = 0x4d42;	//BM
-    bitmapFileHeader.bfOffBits =sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-
-    //Ìî³äBITMAPINFOHEADER
-    BITMAPINFOHEADER bitmapInfoHeader;
-    memset(&bitmapInfoHeader,0,sizeof(BITMAPINFOHEADER));
-    bitmapInfoHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bitmapInfoHeader.biWidth = width;
-    bitmapInfoHeader.biHeight = height;
-    bitmapInfoHeader.biPlanes = 1;
-    bitmapInfoHeader.biBitCount = 24;
-    bitmapInfoHeader.biCompression = BI_RGB;
-    bitmapInfoHeader.biSizeImage = width * abs(height) * 3;
-
-    //////////////////////////////////////////////////////////////////////////
-    FILE * filePtr;			//Á¬½ÓÒª±£´æµÄbitmapÎÄ¼þÓÃ
-    unsigned char tempRGB;	//ÁÙÊ±É«ËØ
-    int imageIdx;
-
-    //½»»»R¡¢BµÄÏñËØÎ»ÖÃ,bitmapµÄÎÄ¼þ·ÅÖÃµÄÊÇBGR,ÄÚ´æµÄÊÇRGB
-    for (imageIdx = 0;imageIdx < bitmapInfoHeader.biSizeImage;imageIdx +=3)
-    {
-        tempRGB = bitmapData[imageIdx];
-        bitmapData[imageIdx] = bitmapData[imageIdx + 2];
-        bitmapData[imageIdx + 2] = tempRGB;
-    }
-
-    filePtr = fopen(filename,"wb");
-    if (NULL == filePtr)
-    {
-        return FALSE;
-    }
-
-    fwrite(&bitmapFileHeader,sizeof(BITMAPFILEHEADER),1,filePtr);
-
-    fwrite(&bitmapInfoHeader,sizeof(BITMAPINFOHEADER),1,filePtr);
-
-    fwrite(bitmapData,bitmapInfoHeader.biSizeImage,1,filePtr);
-
-    fclose(filePtr);
-    return TRUE;
-}
-
-void saveScreenShot()  
-{  
-    int clnWidth,clnHeight; //client width and height  
-    static void * screenData;  
-    RECT rc;  
-    int len = 800 * 800 * 3;  
-    screenData = malloc(len);  
-    memset(screenData,0,len);  
-    glReadPixels(0, 0, 800, 800, GL_RGB, GL_UNSIGNED_BYTE, screenData);  
-
-    //生成文件名字符串，以时间命名  
-    time_t tm = 0;  
-    tm = time(NULL);  
-    char lpstrFilename[256] = "hehe.bmp";  
-    //sprintf_s(lpstrFilename,sizeof(lpstrFilename),"%d.bmp",tm);  
-
-    WriteBitmapFile(lpstrFilename,800,800,(unsigned char*)screenData);  
-    //释放内存  
-    free(screenData);  
-}
-
 
 MarchingCubes::MarchingCubes(VolumeData* v, int isolevel_) {
     voxels = v->data;
@@ -267,7 +197,7 @@ void MarchingCubes::renderScene() {
         histoPyramidConstruction();
 
         // Read top of histoPyramid an use this size to allocate VBO below
-        int * sum = new int[8];
+        int sum[8];
 
         queue.enqueueReadBuffer(buffers[buffers.size() - 1], CL_FALSE, 0, sizeof(int) * 8, sum);
 
@@ -308,7 +238,7 @@ void MarchingCubes::renderScene() {
         test();
 
     }
-
+    /*
     // Render VBO
     reshape(windowWidth, windowHeight);
     glMatrixMode(GL_MODELVIEW);
@@ -345,7 +275,7 @@ void MarchingCubes::renderScene() {
     glDisableClientState(GL_NORMAL_ARRAY);
 
     glPopMatrix();
-
+    */
     // Render text
     glPushMatrix();
     glMatrixMode(GL_PROJECTION);
@@ -360,7 +290,7 @@ void MarchingCubes::renderScene() {
     glutSwapBuffers();
     extractSurface = false;
     //renWin->Render();
-
+    
 }
 
 void MarchingCubes::run() {
@@ -748,39 +678,6 @@ void MarchingCubes::histoPyramidTraversal(int sum) {
     queue.flush();
 }
 
-struct MyVertex
-{
-    float x, y, z;        //Vertex
-    float nx, ny, nz;     //Normal
-    float s0, t0;         //Texcoord0
-};
-
-void MarchingCubes::printError(std::string text){
-    if(text!="")
-        std::cout<<text<<":";
-    GLenum error = glGetError();
-    switch(error){
-    case GL_NO_ERROR:
-        printf("No error: No error has been recorded\n");break;
-    case GL_INVALID_ENUM:
-        printf("Invalid enum: An unacceptable enum value\n");break;
-    case GL_INVALID_VALUE:
-        printf("InvaliD value: A number is out of range\n");break;
-    case GL_INVALID_OPERATION:
-        printf("Invalid operation: The specified operation is not allowed in the current state\n");break;
-    case GL_INVALID_FRAMEBUFFER_OPERATION:
-        printf("Invalid framebuffer operation: The framebuffer object is not complete\n");break;
-    case GL_OUT_OF_MEMORY:
-        printf("Out of memory: There is not enough memory left to execute the command\n");break;
-    case GL_STACK_UNDERFLOW:
-        printf("Stack underflow: An attempt has been made to perform an operation that would cause an internal stack to underflow");break;
-    case GL_STACK_OVERFLOW:
-        printf("Stack overflow: An attempt has been made to perform an operation that would cause an internal stack to overflow\n");break;
-    }
-}
-
-
-
 void MarchingCubes::test() {
 
 
@@ -811,7 +708,7 @@ void MarchingCubes::test() {
     m_isoactor->SetMapper(mapper);
 
 
-    m_renderer->ResetCamera();
+    //m_renderer->ResetCamera();
     //m_renderer->GetActiveCamera()->Zoom(1.5);
 
     m_render_window->Render();

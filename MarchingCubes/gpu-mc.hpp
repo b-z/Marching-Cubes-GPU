@@ -76,25 +76,7 @@ public:
     //char * getCLErrorString(cl_int error);
 
     void test();
-    void printError(std::string text = "");
-
-private:
-    //static MarchingCubes* currentInstance;
-    //static void renderSceneCallback() {
-    //    currentInstance->renderScene();
-    //}
-    //static void idleCallback() {
-    //    currentInstance->idle();
-    //}
-    //static void reshapeCallback(int width, int height) {
-    //    currentInstance->reshape(width, height);
-    //}
-    //static void keyboardCallback(unsigned char key, int x, int y) {
-    //    currentInstance->keyboard(key, x, y);
-    //}
-    //static void mouseMovementCallback(int x, int y) {
-    //    currentInstance->mouseMovement(x, y);
-    //}
+    //void printError(std::string text = "");
 
 public:
     // Define some globals
