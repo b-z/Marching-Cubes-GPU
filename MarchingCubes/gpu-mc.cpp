@@ -120,6 +120,8 @@ MarchingCubes::MarchingCubes(VolumeData* v, int isolevel_) {
     // size: 2的n次方，将数据变成一个正方体，那个正方体的边长
     int size = prepareDataset(&voxels, v->nx, v->ny, v->nz);
     
+    setupVTK();
+
     setupOpenGL(size, v->nx, v->ny, v->nz, v->dx, v->dy, v->dz);
     
     setupOpenCL(voxels, size);
@@ -159,6 +161,27 @@ inline double log2(double x) {
 
 inline double round(double d) {
     return floor(d + 0.5);
+}
+
+void MarchingCubes::setupVTK() {
+    vtkSmartPointer<vtkFileOutputWindow> w = vtkSmartPointer<vtkFileOutputWindow>::New();
+    w->SetFileName("vtk_errors.txt");
+    vtkOutputWindow::SetInstance(w);
+
+    m_render_window = vtkRenderWindow::New();
+    m_renderer = vtkRenderer::New();
+
+    m_render_window->AddRenderer(m_renderer);
+    vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
+    iren->SetRenderWindow(m_render_window);
+    vtkInteractorStyleTrackballCamera* t = vtkInteractorStyleTrackballCamera::New();
+    iren->SetInteractorStyle(t);
+
+
+
+    m_isoactor = vtkActor::New();
+    m_renderer->AddActor(m_isoactor);
+
 }
 
 void MarchingCubes::mouseMovement(int x, int y) {
@@ -398,8 +421,6 @@ void MarchingCubes::setupOpenGL(int size, int sizeX, int sizeY, int sizeZ, float
     extractSurface = true;
     extractSurfaceOnEveryFrame = false;
 
-    //test();
-
 }
 
 void MarchingCubes::keyboard(unsigned char key, int x, int y) {
@@ -437,10 +458,6 @@ void MarchingCubes::keyboard(unsigned char key, int x, int y) {
         break;
     }
 }
-
-//int max(int a, int b) {
-//    return a > b ? a : b;
-//}
 
 int MarchingCubes::prepareDataset(short ** voxels, int sizeX, int sizeY, int sizeZ) {
     // If all equal and power of two exit
@@ -758,14 +775,11 @@ void MarchingCubes::printError(std::string text){
 
 void MarchingCubes::test() {
 
-    vtkSmartPointer<vtkFileOutputWindow> w = vtkSmartPointer<vtkFileOutputWindow>::New();
-    w->SetFileName("vtk_errors.txt");
-    vtkOutputWindow::SetInstance(w);
+
 
     vtkFloatArray* pcoords = vtkFloatArray::New();
 
     pcoords->SetNumberOfComponents(3);
-    pcoords->SetNumberOfTuples(4);
 
     int n = totalSum;
 
@@ -773,13 +787,13 @@ void MarchingCubes::test() {
     vtkPoints* points = vtkPoints::New();
     points->SetData(pcoords);
 
-    vtkCellArray* strips = vtkCellArray::New();
+    m_strips = vtkCellArray::New();
     for (int i=0;i<n;i++){
         
-        strips->InsertNextCell(3);
-        strips->InsertCellPoint(i*6);
-        strips->InsertCellPoint(i*6+2);
-        strips->InsertCellPoint(i*6+4);
+        m_strips->InsertNextCell(3);
+        m_strips->InsertCellPoint(i*6);
+        m_strips->InsertCellPoint(i*6+2);
+        m_strips->InsertCellPoint(i*6+4);
     }
     vtkIntArray* temperature = vtkIntArray::New();
     temperature->SetName("Temperature");
@@ -797,29 +811,18 @@ void MarchingCubes::test() {
 
     vtkPolyData* polydata = vtkPolyData::New();
     polydata->SetPoints(points);
-    polydata->SetPolys(strips);
+    polydata->SetPolys(m_strips);
     vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
     mapper->SetInputData(polydata);
-    vtkActor* isoactor = vtkActor::New();
-    isoactor->SetMapper(mapper);
+    
+    m_isoactor->SetMapper(mapper);
 
 
-    vtkRenderer *ren1 = vtkRenderer::New();
-
-    m_render_window = vtkRenderWindow::New();
-    m_render_window->AddRenderer(ren1);
-    vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
-    iren->SetRenderWindow(m_render_window);
-    vtkInteractorStyleTrackballCamera* t = vtkInteractorStyleTrackballCamera::New();
-    iren->SetInteractorStyle(t);
-
-    ren1->AddActor(isoactor);
-    ren1->SetBackground(0.1, 0.2, 0.4);
+    m_renderer->SetBackground(0.1, 0.2, 0.4);
     m_render_window->SetSize(600, 600);
 
-    ren1->ResetCamera();
-    ren1->GetActiveCamera()->Zoom(1.5);
-
+    m_renderer->ResetCamera();
+    m_renderer->GetActiveCamera()->Zoom(1.5);
 
     m_render_window->Render();
 

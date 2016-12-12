@@ -144,8 +144,9 @@ public:
     int isolevel;
 
     GLuint test_handle;
-    vtkActor* actor;
+    vtkActor* m_isoactor;
     vtkRenderWindow * m_render_window;
+    vtkCellArray* m_strips;
     vtkRenderer* m_renderer;
 
     cl_float* test_buffer;
