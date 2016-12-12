@@ -13,12 +13,15 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 #include "Windows.h"
 
 #include "Wingdi.h"
-    /// test
 
 #include "vtkOpenGLPolyDataMapper.h"
 #include "vtkOpenGLVertexBufferObject.h"
-
-
+#include "vtkFloatArray.h"
+#include "vtkDataArray.h"
+#include "vtkPolyData.h"
+#include "vtkDataSet.h"
+#include "vtkPointData.h"
+#include "vtkDoubleArray.h"
 
 #include "gpu-mc.hpp"
 #include "VolumeData.h"
@@ -111,6 +114,7 @@ MarchingCubes::MarchingCubes(VolumeData* v, int isolevel_) {
     xrot = 0;
     yrot = 0;
     test_buffer = NULL;
+    buffer_size = 0;
 
     // size: 2的n次方，将数据变成一个正方体，那个正方体的边长
     int size = prepareDataset(&voxels, v->nx, v->ny, v->nz);
@@ -118,7 +122,6 @@ MarchingCubes::MarchingCubes(VolumeData* v, int isolevel_) {
     setupOpenGL(size, v->nx, v->ny, v->nz, v->dx, v->dy, v->dz);
     
     setupOpenCL(voxels, size);
-    //test();
 }
 
 MarchingCubes::~MarchingCubes() {
@@ -222,14 +225,13 @@ void MarchingCubes::reshape(int width, int height) {
 void MarchingCubes::renderScene() {
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     if (extractSurfaceOnEveryFrame || extractSurface) {
-        //delete test_buffer;
+        //delete [] test_buffer;
         glDeleteBuffers(1, &VBO_ID);
         //glDeleteBuffers(1, &test_handle);
         
         if(VBOBuffer != NULL && totalSum > 0) {
             delete VBOBuffer;
         }
-
         histoPyramidConstruction();
 
         // Read top of histoPyramid an use this size to allocate VBO below
@@ -257,14 +259,22 @@ void MarchingCubes::renderScene() {
         //glBindBuffer(GL_ARRAY_BUFFER, test_handle);
         glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
         glBufferData(GL_ARRAY_BUFFER, totalSum * 18 * sizeof(cl_float), NULL, GL_STATIC_DRAW);
-        //test_buffer = new cl_float[totalSum * 18];
-        //test_buffer = (cl_mem*)malloc(totalSum * 18 * sizeof(cl_float));
+        //test_buffer = new cl_float[totalSum * 18]; // 这个是不需要的，会在下面重新分配
+        ///test_buffer = (cl_mem*)malloc(totalSum * 18 * sizeof(cl_float));
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         // Traverse the histoPyramid and fill VBO
         histoPyramidTraversal(totalSum);
         queue.flush();
+        buffer_size = totalSum * 18 * sizeof(cl_float);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
+        glMapBuffer(GL_ARRAY_BUFFER, GL_READ_WRITE);
+        glGetBufferPointerv(GL_ARRAY_BUFFER, GL_BUFFER_MAP_POINTER, (void**)&test_buffer);
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
         //actor->Modified();
+        test();
+
     }
 
     // Render VBO
@@ -746,7 +756,7 @@ void MarchingCubes::printError(std::string text){
 
 
 void MarchingCubes::test() {
-/*
+
     vtkSmartPointer<vtkFileOutputWindow> w = vtkSmartPointer<vtkFileOutputWindow>::New();
     w->SetFileName("vtk_errors.txt");
     vtkOutputWindow::SetInstance(w);
@@ -754,21 +764,6 @@ void MarchingCubes::test() {
     /////////////////////////////////////////////////////////////
 
 
-    vtkRenderer *ren1 = vtkRenderer::New();
-
-    renWin = vtkRenderWindow::New();
-    renWin->AddRenderer(ren1);
-    vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
-
-    iren->SetRenderWindow(renWin);
-
-    //ren1->AddActor(actor);
-    //ren1->AddActor(cylinderActor);
-    ren1->SetBackground(0.1, 0.2, 0.4);
-    renWin->SetSize(600, 600);
-
-    ren1->ResetCamera();
-    ren1->GetActiveCamera()->Zoom(1.5);
 
 
     //renWin->MakeCurrent();
@@ -786,75 +781,187 @@ void MarchingCubes::test() {
     cylinderActor->RotateX(30.0);
     cylinderActor->RotateY(-45.0);
 
-        printError();
     //////////////////////////////////////////////////////////////////////////
-    vtkOpenGLPolyDataMapper_* opm = new vtkOpenGLPolyDataMapper_;
-    vtkOpenGLVertexBufferObject* vbo = opm->GetVBO();
+    //vtkOpenGLPolyDataMapper_* opm = new vtkOpenGLPolyDataMapper_;
+    //vtkOpenGLVertexBufferObject* vbo = opm->GetVBO();
 
-    //vbo->GenerateBuffer(vtkOpenGLVertexBufferObject::ArrayBuffer);
-    printError();
-    test_handle = vbo->GetHandle();
-    if (!test_handle) {
-        glGenBuffers(1, &test_handle);        
-    }
-    //vbo->Bind();
-    printError();
-      
-    glBindBuffer(GL_ARRAY_BUFFER, test_handle);
-    printError();
+    ////vbo->GenerateBuffer(vtkOpenGLVertexBufferObject::ArrayBuffer);
+    //printError();
+    //test_handle = vbo->GetHandle();
+    //if (!test_handle) {
+    //    glGenBuffers(1, &test_handle);        
+    //}
+    ////vbo->Bind();
+    //printError();
+    //  
+    //glBindBuffer(GL_ARRAY_BUFFER, test_handle);
+    //printError();
 
-    MyVertex pvertex[3];
-    //VERTEX 0
-    pvertex[0].x = 0.0;
-    pvertex[0].y = 0.0;
-    pvertex[0].z = 0.0;
-    pvertex[0].nx = 0.0;
-    pvertex[0].ny = 0.0;
-    pvertex[0].nz = 1.0;
-    pvertex[0].s0 = 0.0;
-    pvertex[0].t0 = 0.0;
-    //VERTEX 1
-    pvertex[1].x = 1.0;
-    pvertex[1].y = 0.0;
-    pvertex[1].z = 0.0;
-    pvertex[1].nx = 0.0;
-    pvertex[1].ny = 0.0;
-    pvertex[1].nz = 1.0;
-    pvertex[1].s0 = 1.0;
-    pvertex[1].t0 = 0.0;
-    //VERTEX 2
-    pvertex[2].x = 0.0;
-    pvertex[2].y = 1.0;
-    pvertex[2].z = 0.0;
-    pvertex[2].nx = 0.0;
-    pvertex[2].ny = 0.0;
-    pvertex[2].nz = 1.0;
-    pvertex[2].s0 = 0.0;
-    pvertex[2].t0 = 1.0;
+    //MyVertex pvertex[3];
+    ////VERTEX 0
+    //pvertex[0].x = 0.0;
+    //pvertex[0].y = 0.0;
+    //pvertex[0].z = 0.0;
+    //pvertex[0].nx = 0.0;
+    //pvertex[0].ny = 0.0;
+    //pvertex[0].nz = 1.0;
+    //pvertex[0].s0 = 0.0;
+    //pvertex[0].t0 = 0.0;
+    ////VERTEX 1
+    //pvertex[1].x = 1.0;
+    //pvertex[1].y = 0.0;
+    //pvertex[1].z = 0.0;
+    //pvertex[1].nx = 0.0;
+    //pvertex[1].ny = 0.0;
+    //pvertex[1].nz = 1.0;
+    //pvertex[1].s0 = 1.0;
+    //pvertex[1].t0 = 0.0;
+    ////VERTEX 2
+    //pvertex[2].x = 0.0;
+    //pvertex[2].y = 1.0;
+    //pvertex[2].z = 0.0;
+    //pvertex[2].nx = 0.0;
+    //pvertex[2].ny = 0.0;
+    //pvertex[2].nz = 1.0;
+    //pvertex[2].s0 = 0.0;
+    //pvertex[2].t0 = 1.0;
 
 
-    //glBufferData(GL_ARRAY_BUFFER, sizeof(MyVertex)*3, &pvertex[0].x, GL_STATIC_DRAW);
-    glClearColor(1,0,0,1);
-    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-    glPointSize(10);
-    glColor3f(0.0,1.0,1.0);
-    glBegin(GL_POINTS);
-    glVertex3f(0.0,0.0,0.0);
-    //glDrawArrays(GL_TRIANGLES,test_handle,3);
-    glEnd();
-    glFinish();
-    saveScreenShot();
-    printError();
+    ////glBufferData(GL_ARRAY_BUFFER, sizeof(MyVertex)*3, &pvertex[0].x, GL_STATIC_DRAW);
+    //glClearColor(1,0,0,1);
+    //glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    //glPointSize(10);
+    //glColor3f(0.0,1.0,1.0);
+    //glBegin(GL_POINTS);
+    //glVertex3f(0.0,0.0,0.0);
+    ////glDrawArrays(GL_TRIANGLES,test_handle,3);
+    //glEnd();
+    //glFinish();
+    //saveScreenShot();
+    //printError();
 
-    actor = vtkActor::New();
-    actor->SetMapper(opm);
+    //actor = vtkActor::New();
+    //actor->SetMapper(opm);
     
     //////////////////////////////////////////////////////////////////////////
 
+    printError();
+
+    
+    ///////////////////////////////////////
+
+    //vtkFloatArray* fa = vtkFloatArray::New();
+    //fa->SetArray(test_buffer, buffer_size, true);
+    //vtkDataArray* da = vtkDataArray(fa);
+
+    //vtkPolyDataMapper* pdm = vtkPolyDataMapper::New();
+    //vtkPolyData* pd = vtkPolyData::New();
+    //
+    //vtkPointData* pointdata = pd->GetPointData();
+    //pointdata
+    //vtkActor* isoactor = vtkActor::New();
+    //isoactor->SetMapper(pdm);
+
+    int i;
+
+    // Create a float array which represents the points.
+    vtkFloatArray* pcoords = vtkFloatArray::New();
+
+    // Note that by default, an array has 1 component.
+    // We have to change it to 3 for points
+    pcoords->SetNumberOfComponents(3);
+    // We ask pcoords to allocate room for at least 4 tuples
+    // and set the number of tuples to 4.
+    pcoords->SetNumberOfTuples(4);
+    // Assign each tuple. There are 5 specialized versions of SetTuple:
+    // SetTuple1 SetTuple2 SetTuple3 SetTuple4 SetTuple9
+    // These take 1, 2, 3, 4 and 9 components respectively.
+    float pts[4][3] = { {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0},
+    {1.0, 0.0, 0.0}, {1.0, 1.0, 0.0} };
+    //for (i=0; i<4; i++)
+    //{
+        //pcoords->SetTuple(i, pts[i]);
+        
+        pcoords->SetArray(test_buffer, /*buffer_size*/1200*sizeof(float), true);
+        //pcoords->SetArray(test_buffer, 12*sizeof(float), true);
+    //}
+
+    // Create vtkPoints and assign pcoords as the internal data array.
+    vtkPoints* points = vtkPoints::New();
+    points->SetData(pcoords);
+
+    // Create the cells. In this case, a triangle strip with 2 triangles
+    // (which can be represented by 4 points)
+    vtkCellArray* strips = vtkCellArray::New();
+    int n = 400;
+    strips->InsertNextCell(n);
+    for (i=0;i<n;i++){
+        strips->InsertCellPoint(i);
+    }
+    //strips->InsertCellPoint(0);
+    //strips->InsertCellPoint(1);
+    //strips->InsertCellPoint(2);
+    //strips->InsertCellPoint(3);
+
+    // Create an integer array with 4 tuples. Note that when using
+    // InsertNextValue (or InsertNextTuple1 which is equivalent in
+    // this situation), the array will expand automatically
+    vtkIntArray* temperature = vtkIntArray::New();
+    temperature->SetName("Temperature");
+    temperature->InsertNextValue(10);
+    temperature->InsertNextValue(20);
+    temperature->InsertNextValue(30);
+    temperature->InsertNextValue(40);
+
+    // Create a double array.
+    vtkDoubleArray* vorticity = vtkDoubleArray::New();
+    vorticity->SetName("Vorticity");
+    vorticity->InsertNextValue(2.7);
+    vorticity->InsertNextValue(4.1);
+    vorticity->InsertNextValue(5.3);
+    vorticity->InsertNextValue(3.4);
+
+    // Create the dataset. In this case, we create a vtkPolyData
+    vtkPolyData* polydata = vtkPolyData::New();
+    // Assign points and cells
+    polydata->SetPoints(points);
+    polydata->SetStrips(strips);
+    // Assign scalars
+//    polydata->GetPointData()->SetScalars(temperature);
+    // Add the vorticity array. In this example, this field
+    // is not used.
+//    polydata->GetPointData()->AddArray(vorticity);
+
+    // Create the mapper and set the appropriate scalar range
+    // (default is (0,1)
+    vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
+    mapper->SetInputData(polydata);
+//    mapper->SetScalarRange(0, 40);
+
+    // Create an actor.
+    vtkActor* isoactor = vtkActor::New();
+    isoactor->SetMapper(mapper);
+
+    ///////////////////////////////////////
+
+    vtkRenderer *ren1 = vtkRenderer::New();
+
+    renWin = vtkRenderWindow::New();
+    renWin->AddRenderer(ren1);
+    vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
+
+    iren->SetRenderWindow(renWin);
+
+    ren1->AddActor(isoactor);
+    ren1->AddActor(cylinderActor);
+    ren1->SetBackground(0.1, 0.2, 0.4);
+    renWin->SetSize(600, 600);
+
+    ren1->ResetCamera();
+    ren1->GetActiveCamera()->Zoom(1.5);
 
 
     renWin->Render();
 
-    */
 }
 

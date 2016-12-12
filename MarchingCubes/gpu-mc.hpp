@@ -147,7 +147,8 @@ public:
     vtkActor* actor;
     vtkRenderWindow * renWin;
 
-    cl_mem* test_buffer;
+    cl_float* test_buffer;
+    int buffer_size;
 };
 
 
