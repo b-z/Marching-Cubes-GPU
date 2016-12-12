@@ -22,6 +22,7 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 #include "vtkDataSet.h"
 #include "vtkPointData.h"
 #include "vtkDoubleArray.h"
+#include "vtkInteractorStyleTrackballCamera.h"
 
 #include "gpu-mc.hpp"
 #include "VolumeData.h"
@@ -761,157 +762,25 @@ void MarchingCubes::test() {
     w->SetFileName("vtk_errors.txt");
     vtkOutputWindow::SetInstance(w);
 
-    /////////////////////////////////////////////////////////////
-
-
-
-
-    //renWin->MakeCurrent();
-
-
-    vtkCylinderSource *cylinder = vtkCylinderSource::New();
-    cylinder->SetResolution(8);
-
-    vtkPolyDataMapper *cylinderMapper = vtkPolyDataMapper::New();
-    cylinderMapper->SetInputConnection(cylinder->GetOutputPort());
-
-    vtkActor *cylinderActor = vtkActor::New();
-    cylinderActor->SetMapper(cylinderMapper);
-    cylinderActor->GetProperty()->SetColor(1.0000, 0.3882, 0.2784);
-    cylinderActor->RotateX(30.0);
-    cylinderActor->RotateY(-45.0);
-
-    //////////////////////////////////////////////////////////////////////////
-    //vtkOpenGLPolyDataMapper_* opm = new vtkOpenGLPolyDataMapper_;
-    //vtkOpenGLVertexBufferObject* vbo = opm->GetVBO();
-
-    ////vbo->GenerateBuffer(vtkOpenGLVertexBufferObject::ArrayBuffer);
-    //printError();
-    //test_handle = vbo->GetHandle();
-    //if (!test_handle) {
-    //    glGenBuffers(1, &test_handle);        
-    //}
-    ////vbo->Bind();
-    //printError();
-    //  
-    //glBindBuffer(GL_ARRAY_BUFFER, test_handle);
-    //printError();
-
-    //MyVertex pvertex[3];
-    ////VERTEX 0
-    //pvertex[0].x = 0.0;
-    //pvertex[0].y = 0.0;
-    //pvertex[0].z = 0.0;
-    //pvertex[0].nx = 0.0;
-    //pvertex[0].ny = 0.0;
-    //pvertex[0].nz = 1.0;
-    //pvertex[0].s0 = 0.0;
-    //pvertex[0].t0 = 0.0;
-    ////VERTEX 1
-    //pvertex[1].x = 1.0;
-    //pvertex[1].y = 0.0;
-    //pvertex[1].z = 0.0;
-    //pvertex[1].nx = 0.0;
-    //pvertex[1].ny = 0.0;
-    //pvertex[1].nz = 1.0;
-    //pvertex[1].s0 = 1.0;
-    //pvertex[1].t0 = 0.0;
-    ////VERTEX 2
-    //pvertex[2].x = 0.0;
-    //pvertex[2].y = 1.0;
-    //pvertex[2].z = 0.0;
-    //pvertex[2].nx = 0.0;
-    //pvertex[2].ny = 0.0;
-    //pvertex[2].nz = 1.0;
-    //pvertex[2].s0 = 0.0;
-    //pvertex[2].t0 = 1.0;
-
-
-    ////glBufferData(GL_ARRAY_BUFFER, sizeof(MyVertex)*3, &pvertex[0].x, GL_STATIC_DRAW);
-    //glClearColor(1,0,0,1);
-    //glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-    //glPointSize(10);
-    //glColor3f(0.0,1.0,1.0);
-    //glBegin(GL_POINTS);
-    //glVertex3f(0.0,0.0,0.0);
-    ////glDrawArrays(GL_TRIANGLES,test_handle,3);
-    //glEnd();
-    //glFinish();
-    //saveScreenShot();
-    //printError();
-
-    //actor = vtkActor::New();
-    //actor->SetMapper(opm);
-    
-    //////////////////////////////////////////////////////////////////////////
-
-    printError();
-
-    
-    ///////////////////////////////////////
-
-    //vtkFloatArray* fa = vtkFloatArray::New();
-    //fa->SetArray(test_buffer, buffer_size, true);
-    //vtkDataArray* da = vtkDataArray(fa);
-
-    //vtkPolyDataMapper* pdm = vtkPolyDataMapper::New();
-    //vtkPolyData* pd = vtkPolyData::New();
-    //
-    //vtkPointData* pointdata = pd->GetPointData();
-    //pointdata
-    //vtkActor* isoactor = vtkActor::New();
-    //isoactor->SetMapper(pdm);
-
-    int i;
-
-    // Create a float array which represents the points.
     vtkFloatArray* pcoords = vtkFloatArray::New();
 
-    // Note that by default, an array has 1 component.
-    // We have to change it to 3 for points
     pcoords->SetNumberOfComponents(3);
-    // We ask pcoords to allocate room for at least 4 tuples
-    // and set the number of tuples to 4.
     pcoords->SetNumberOfTuples(4);
-    // Assign each tuple. There are 5 specialized versions of SetTuple:
-    // SetTuple1 SetTuple2 SetTuple3 SetTuple4 SetTuple9
-    // These take 1, 2, 3, 4 and 9 components respectively.
-    float pts[4][3] = { {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0},
-    {1.0, 0.0, 0.0}, {1.0, 1.0, 0.0} };
 
     int n = totalSum;
 
-    //for (i=0; i<4; i++)
-    //{
-        //pcoords->SetTuple(i, pts[i]);
-        
-        pcoords->SetArray(test_buffer, totalSum*18, true);
-        //pcoords->SetArray(test_buffer, 12*sizeof(float), true);
-    //}
-
-    // Create vtkPoints and assign pcoords as the internal data array.
+    pcoords->SetArray(test_buffer, totalSum*18, true);
     vtkPoints* points = vtkPoints::New();
     points->SetData(pcoords);
 
-    // Create the cells. In this case, a triangle strip with 2 triangles
-    // (which can be represented by 4 points)
     vtkCellArray* strips = vtkCellArray::New();
-    //strips->InsertNextCell(n);
-    for (i=0;i<n;i++){
+    for (int i=0;i<n;i++){
         
         strips->InsertNextCell(3);
         strips->InsertCellPoint(i*6);
         strips->InsertCellPoint(i*6+2);
         strips->InsertCellPoint(i*6+4);
     }
-    //strips->InsertCellPoint(0);
-    //strips->InsertCellPoint(1);
-    //strips->InsertCellPoint(2);
-    //strips->InsertCellPoint(3);
-
-    // Create an integer array with 4 tuples. Note that when using
-    // InsertNextValue (or InsertNextTuple1 which is equivalent in
-    // this situation), the array will expand automatically
     vtkIntArray* temperature = vtkIntArray::New();
     temperature->SetName("Temperature");
     temperature->InsertNextValue(10);
@@ -919,7 +788,6 @@ void MarchingCubes::test() {
     temperature->InsertNextValue(30);
     temperature->InsertNextValue(40);
 
-    // Create a double array.
     vtkDoubleArray* vorticity = vtkDoubleArray::New();
     vorticity->SetName("Vorticity");
     vorticity->InsertNextValue(2.7);
@@ -927,48 +795,33 @@ void MarchingCubes::test() {
     vorticity->InsertNextValue(5.3);
     vorticity->InsertNextValue(3.4);
 
-    // Create the dataset. In this case, we create a vtkPolyData
     vtkPolyData* polydata = vtkPolyData::New();
-    // Assign points and cells
     polydata->SetPoints(points);
-//    polydata->SetStrips(strips);
     polydata->SetPolys(strips);
-    // Assign scalars
-//    polydata->GetPointData()->SetScalars(temperature);
-    // Add the vorticity array. In this example, this field
-    // is not used.
-//    polydata->GetPointData()->AddArray(vorticity);
-
-    // Create the mapper and set the appropriate scalar range
-    // (default is (0,1)
     vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
     mapper->SetInputData(polydata);
-//    mapper->SetScalarRange(0, 40);
-
-    // Create an actor.
     vtkActor* isoactor = vtkActor::New();
     isoactor->SetMapper(mapper);
 
-    ///////////////////////////////////////
 
     vtkRenderer *ren1 = vtkRenderer::New();
 
-    renWin = vtkRenderWindow::New();
-    renWin->AddRenderer(ren1);
+    m_render_window = vtkRenderWindow::New();
+    m_render_window->AddRenderer(ren1);
     vtkRenderWindowInteractor *iren = vtkRenderWindowInteractor::New();
-
-    iren->SetRenderWindow(renWin);
+    iren->SetRenderWindow(m_render_window);
+    vtkInteractorStyleTrackballCamera* t = vtkInteractorStyleTrackballCamera::New();
+    iren->SetInteractorStyle(t);
 
     ren1->AddActor(isoactor);
-//    ren1->AddActor(cylinderActor);
     ren1->SetBackground(0.1, 0.2, 0.4);
-    renWin->SetSize(600, 600);
+    m_render_window->SetSize(600, 600);
 
     ren1->ResetCamera();
     ren1->GetActiveCamera()->Zoom(1.5);
 
 
-    renWin->Render();
+    m_render_window->Render();
 
 }
 

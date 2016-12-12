@@ -145,10 +145,14 @@ public:
 
     GLuint test_handle;
     vtkActor* actor;
-    vtkRenderWindow * renWin;
+    vtkRenderWindow * m_render_window;
+    vtkRenderer* m_renderer;
 
     cl_float* test_buffer;
     int buffer_size;
+
+public:
+    void setupVTK();
 };
 
 
