@@ -878,11 +878,14 @@ void MarchingCubes::test() {
     // These take 1, 2, 3, 4 and 9 components respectively.
     float pts[4][3] = { {0.0, 0.0, 0.0}, {0.0, 1.0, 0.0},
     {1.0, 0.0, 0.0}, {1.0, 1.0, 0.0} };
+
+    int n = totalSum;
+
     //for (i=0; i<4; i++)
     //{
         //pcoords->SetTuple(i, pts[i]);
         
-        pcoords->SetArray(test_buffer, /*buffer_size*/1200*sizeof(float), true);
+        pcoords->SetArray(test_buffer, totalSum*18, true);
         //pcoords->SetArray(test_buffer, 12*sizeof(float), true);
     //}
 
@@ -893,10 +896,13 @@ void MarchingCubes::test() {
     // Create the cells. In this case, a triangle strip with 2 triangles
     // (which can be represented by 4 points)
     vtkCellArray* strips = vtkCellArray::New();
-    int n = 400;
-    strips->InsertNextCell(n);
+    //strips->InsertNextCell(n);
     for (i=0;i<n;i++){
-        strips->InsertCellPoint(i);
+        
+        strips->InsertNextCell(3);
+        strips->InsertCellPoint(i*6);
+        strips->InsertCellPoint(i*6+2);
+        strips->InsertCellPoint(i*6+4);
     }
     //strips->InsertCellPoint(0);
     //strips->InsertCellPoint(1);
@@ -925,7 +931,8 @@ void MarchingCubes::test() {
     vtkPolyData* polydata = vtkPolyData::New();
     // Assign points and cells
     polydata->SetPoints(points);
-    polydata->SetStrips(strips);
+//    polydata->SetStrips(strips);
+    polydata->SetPolys(strips);
     // Assign scalars
 //    polydata->GetPointData()->SetScalars(temperature);
     // Add the vorticity array. In this example, this field
@@ -953,7 +960,7 @@ void MarchingCubes::test() {
     iren->SetRenderWindow(renWin);
 
     ren1->AddActor(isoactor);
-    ren1->AddActor(cylinderActor);
+//    ren1->AddActor(cylinderActor);
     ren1->SetBackground(0.1, 0.2, 0.4);
     renWin->SetSize(600, 600);
 
