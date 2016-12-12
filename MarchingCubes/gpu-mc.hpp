@@ -146,7 +146,7 @@ public:
     GLuint test_handle;
     vtkActor* m_isoactor;
     vtkRenderWindow * m_render_window;
-    vtkCellArray* m_strips;
+    vtkCellArray* m_polys;
     vtkRenderer* m_renderer;
 
     cl_float* test_buffer;

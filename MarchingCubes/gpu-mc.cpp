@@ -128,7 +128,8 @@ MarchingCubes::MarchingCubes(VolumeData* v, int isolevel_) {
 }
 
 MarchingCubes::~MarchingCubes() {
-
+    //!!!!!!
+    m_polys->Initialize();
 }
 
 
@@ -186,7 +187,8 @@ void MarchingCubes::setupVTK() {
     m_renderer->SetBackground(0.1, 0.2, 0.4);
     m_render_window->SetSize(600, 600);
 
-    m_strips = vtkCellArray::New();
+    m_polys = vtkCellArray::New();
+
 
 }
 
@@ -432,12 +434,12 @@ void MarchingCubes::setupOpenGL(int size, int sizeX, int sizeY, int sizeZ, float
 void MarchingCubes::keyboard(unsigned char key, int x, int y) {
     switch (key) {
     case '+':
-        isolevel+=10;
+        isolevel+=50;
         if (!extractSurfaceOnEveryFrame)
             extractSurface = true;
         break;
     case '-':
-        isolevel-=10;
+        isolevel-=50;
         if (!extractSurfaceOnEveryFrame)
             extractSurface = true;
         break;
@@ -787,24 +789,22 @@ void MarchingCubes::test() {
 
     pcoords->SetNumberOfComponents(3);
 
-    int n = totalSum;
 
     pcoords->SetArray(test_buffer, totalSum*18, true);
     vtkPoints* points = vtkPoints::New();
     points->SetData(pcoords);
 
-    for (int i=0;i<n;i++){
-        
-        m_strips->InsertNextCell(3);
-        m_strips->InsertCellPoint(i*6);
-        m_strips->InsertCellPoint(i*6+2);
-        m_strips->InsertCellPoint(i*6+4);
+    m_polys->Initialize();
+    for (int i=0;i<totalSum;i++){
+        m_polys->InsertNextCell(3);
+        m_polys->InsertCellPoint(i*6);
+        m_polys->InsertCellPoint(i*6+2);
+        m_polys->InsertCellPoint(i*6+4);
     }
-
 
     vtkPolyData* polydata = vtkPolyData::New();
     polydata->SetPoints(points);
-    polydata->SetPolys(m_strips);
+    polydata->SetPolys(m_polys);
     vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
     mapper->SetInputData(polydata);
     
