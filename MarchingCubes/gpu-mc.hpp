@@ -39,22 +39,28 @@ typedef struct {
     float x, y, z;
 } MCSizef;
 
-#include "vtkOpenGLPolyDataMapper.h"
-#include "vtkOpenGLVertexBufferObject.h"
-class vtkOpenGLPolyDataMapper_ 
-    :public vtkOpenGLPolyDataMapper
-{
-public:
-    vtkOpenGLPolyDataMapper_()
-        :vtkOpenGLPolyDataMapper()
-    {
-
-    }
-    ~vtkOpenGLPolyDataMapper_(){}
-    vtkOpenGLVertexBufferObject* GetVBO() {
-        return this->VBO;
-    }
-};
+//#include "vtkOpenGLPolyDataMapper.h"
+//#include "vtkOpenGLVertexBufferObject.h"
+//class vtkOpenGLPolyDataMapper_ 
+//    :public vtkOpenGLPolyDataMapper
+//{
+//public:
+//    vtkOpenGLPolyDataMapper_()
+//        :vtkOpenGLPolyDataMapper()
+//    {
+//
+//    }
+//    ~vtkOpenGLPolyDataMapper_(){}
+//    vtkOpenGLVertexBufferObject* GetVBO() {
+//        return this->VBO;
+//    }
+//};
+#include "vtkSmartPointer.h"
+class vtkRenderWindowInteractor;
+class vtkActor;
+class vtkRenderWindow;
+class vtkCellArray;
+class vtkRenderer;
 
 class MarchingCubes {
 public:
@@ -133,6 +139,7 @@ public:
     VSP<vtkRenderWindow> m_render_window;
     VSP<vtkCellArray> m_polys;
     VSP<vtkRenderer> m_renderer;
+    VSP<vtkRenderWindowInteractor> m_iren;
 
     cl_float* test_buffer;
     int buffer_size;

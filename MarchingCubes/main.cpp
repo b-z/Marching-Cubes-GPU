@@ -6,6 +6,8 @@
 #include "VolumeData.h"
 //using namespace std;
 //#include <cstdlib>
+
+#include "vtkRenderWindowInteractor.h"
 #define GLX_DIRECT_RENDERING 1
 int main(int argc, char ** argv) {
 #if 1
@@ -34,8 +36,11 @@ int main(int argc, char ** argv) {
     MarchingCubes mc(v, 1000);
 
     
-    mc.run();
-
+    //mc.run();
+    mc.renderScene();
+    mc.extractSurface = true;
+    //mc.idle();
+    mc.m_iren->Start();
     return 0;
 #else
     // Process arguments

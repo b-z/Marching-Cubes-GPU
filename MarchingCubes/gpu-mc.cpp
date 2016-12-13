@@ -21,6 +21,7 @@ VTK_MODULE_INIT(vtkRenderingOpenGL2)
 #include "vtkPointData.h"
 #include "vtkDoubleArray.h"
 #include "vtkInteractorStyleTrackballCamera.h"
+#include "vtkCallbackCommand.h"
 
 #include "gpu-mc.hpp"
 #include "VolumeData.h"
@@ -100,7 +101,14 @@ void mouseMovementCallback(int x, int y) {
 }
 
 
-
+void callbackKeydown(vtkObject* caller, unsigned long eid, void* clientdata, void* calldata) {
+    MarchingCubes* mc = (MarchingCubes*)clientdata;
+    mc->isolevel += 50;
+    std::cout<<mc->isolevel<<std::endl;
+    mc->extractSurface = true;
+    //glutPostRedisplay();
+    mc->renderScene();
+}
 
 
 
@@ -113,10 +121,14 @@ void MarchingCubes::setupVTK() {
     m_renderer = VSP<vtkRenderer>::New();
 
     m_render_window->AddRenderer(m_renderer);
-    VSP<vtkRenderWindowInteractor> iren = VSP<vtkRenderWindowInteractor>::New();
-    iren->SetRenderWindow(m_render_window);
+    m_iren = VSP<vtkRenderWindowInteractor>::New();
+    m_iren->SetRenderWindow(m_render_window);
     VSP<vtkInteractorStyleTrackballCamera> t = VSP<vtkInteractorStyleTrackballCamera>::New();
-    iren->SetInteractorStyle(t);
+    VSP<vtkCallbackCommand> kd = VSP<vtkCallbackCommand>::New();
+    kd->SetClientData(this);
+    kd->SetCallback(callbackKeydown);
+    t->AddObserver(vtkCommand::KeyPressEvent, kd);
+    m_iren->SetInteractorStyle(t);
 
 
 
@@ -195,11 +207,11 @@ void MarchingCubes::reshape(int width, int height) {
 }
 
 void MarchingCubes::renderScene() {
-    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    //glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    glutSetWindow(windowID);
+
     if (extractSurfaceOnEveryFrame || extractSurface) {
-        //delete [] test_buffer;
         glDeleteBuffers(1, &VBO_ID);
-        //glDeleteBuffers(1, &test_handle);
         
         if(VBOBuffer != NULL && totalSum > 0) {
             delete VBOBuffer;
@@ -226,13 +238,9 @@ void MarchingCubes::renderScene() {
         VBO_ID: opengl的缓存编号
         VBOBuffer: opencl的缓存
         */
-        //glGenBuffers(1, &test_handle);
         glGenBuffers(1, &VBO_ID);
-        //glBindBuffer(GL_ARRAY_BUFFER, test_handle);
         glBindBuffer(GL_ARRAY_BUFFER, VBO_ID);
         glBufferData(GL_ARRAY_BUFFER, totalSum * 18 * sizeof(cl_float), NULL, GL_STATIC_DRAW);
-        //test_buffer = new cl_float[totalSum * 18]; // 这个是不需要的，会在下面重新分配
-        ///test_buffer = (cl_mem*)malloc(totalSum * 18 * sizeof(cl_float));
         glBindBuffer(GL_ARRAY_BUFFER, 0);
 
         // Traverse the histoPyramid and fill VBO
@@ -244,7 +252,6 @@ void MarchingCubes::renderScene() {
         glGetBufferPointerv(GL_ARRAY_BUFFER, GL_BUFFER_MAP_POINTER, (void**)&test_buffer);
         glUnmapBuffer(GL_ARRAY_BUFFER);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
-        //actor->Modified();
         test();
 
     }
@@ -286,18 +293,18 @@ void MarchingCubes::renderScene() {
 
     glPopMatrix();
     */
-    // Render text
-    glPushMatrix();
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glColor3f(1.0f, 1.0f, 0.0f);
-    drawFPSCounter(totalSum);
-    glPopMatrix();
+    //// Render text
+    //glPushMatrix();
+    //glMatrixMode(GL_PROJECTION);
+    //glLoadIdentity();
+    //glMatrixMode(GL_MODELVIEW);
+    //glLoadIdentity();
+    //glColor3f(1.0f, 1.0f, 0.0f);
+    //drawFPSCounter(totalSum);
+    //glPopMatrix();
+    //
+    //glutSwapBuffers();
 
-
-    glutSwapBuffers();
     extractSurface = false;
     //renWin->Render();
     
@@ -311,46 +318,44 @@ void MarchingCubes::setupOpenGL(int size, int sizeX, int sizeY, int sizeZ, float
     currentInstance = this; // see http://stackoverflow.com/questions/3589422/using-opengl-glutdisplayfunc-within-class
     
     /* Initialize GLUT */
-    //glutInit(argc, argv);
-    glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
-    glutInitWindowPosition(0, 0);
-    //glutInitWindowSize(glutGet(GLUT_SCREEN_WIDTH),glutGet(GLUT_SCREEN_HEIGHT));
-    glutInitWindowSize(800, 800);
+    //glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
+    //glutInitWindowPosition(0, 0);
+    //glutInitWindowSize(800, 800);
     windowID = glutCreateWindow("GPU Marching Cubes");
-    //glutFullScreen();	
-    glutDisplayFunc(renderSceneCallback);
-    glutIdleFunc(idleCallback);
-    glutReshapeFunc(reshapeCallback);
-    glutKeyboardFunc(keyboardCallback);
-    glutMotionFunc(mouseMovementCallback);
+    //glutDisplayFunc(renderSceneCallback);
+    //glutIdleFunc(idleCallback);
+    //glutReshapeFunc(reshapeCallback);
+    //glutKeyboardFunc(keyboardCallback);
+    //glutMotionFunc(mouseMovementCallback);
 
+    glutSetWindow(windowID);
 
     glewInit();
-    glEnable(GL_NORMALIZE);
-    glEnable(GL_DEPTH_TEST);
-    glShadeModel(GL_SMOOTH);
-    glEnable(GL_LIGHT0);
-    glEnable(GL_LIGHTING);
+    //glEnable(GL_NORMALIZE);
+    //glEnable(GL_DEPTH_TEST);
+    //glShadeModel(GL_SMOOTH);
+    //glEnable(GL_LIGHT0);
+    //glEnable(GL_LIGHTING);
 
-    // Set material properties which will be assigned by glColor
-    GLfloat color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
-    GLfloat specReflection[] = { 0.8f, 0.8f, 0.8f, 1.0f };
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specReflection);
-    GLfloat shininess[] = { 16.0f };
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
+    //// Set material properties which will be assigned by glColor
+    //GLfloat color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    //glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, color);
+    //GLfloat specReflection[] = { 0.8f, 0.8f, 0.8f, 1.0f };
+    //glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, specReflection);
+    //GLfloat shininess[] = { 16.0f };
+    //glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
 
-    // Create light components
-    GLfloat ambientLight[] = { 0.3f, 0.3f, 0.3f, 1.0f };
-    GLfloat diffuseLight[] = { 0.7f, 0.7f, 0.7f, 1.0f };
-    GLfloat specularLight[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    GLfloat position[] = { -0.0f, 4.0f, 1.0f, 1.0f };
+    //// Create light components
+    //GLfloat ambientLight[] = { 0.3f, 0.3f, 0.3f, 1.0f };
+    //GLfloat diffuseLight[] = { 0.7f, 0.7f, 0.7f, 1.0f };
+    //GLfloat specularLight[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    //GLfloat position[] = { -0.0f, 4.0f, 1.0f, 1.0f };
 
-    // Assign created components to GL_LIGHT0
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
-    glLightfv(GL_LIGHT0, GL_POSITION, position);
+    //// Assign created components to GL_LIGHT0
+    //glLightfv(GL_LIGHT0, GL_AMBIENT, ambientLight);
+    //glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseLight);
+    //glLightfv(GL_LIGHT0, GL_SPECULAR, specularLight);
+    //glLightfv(GL_LIGHT0, GL_POSITION, position);
 
     origin[0] = 0;
     origin[1] = 0;
@@ -706,10 +711,6 @@ void MarchingCubes::test() {
     mapper->SetInputData(polydata);
     
     m_isoactor->SetMapper(mapper);
-
-
-    //m_renderer->ResetCamera();
-    //m_renderer->GetActiveCamera()->Zoom(1.5);
 
     m_render_window->Render();
 
