@@ -61,6 +61,10 @@ class vtkActor;
 class vtkRenderWindow;
 class vtkCellArray;
 class vtkRenderer;
+class vtkFloatArray;
+class vtkPoints;
+class vtkPolyData;
+class vtkPolyDataMapper;
 
 class MarchingCubes {
 public:
@@ -140,6 +144,11 @@ public:
     VSP<vtkCellArray> m_polys;
     VSP<vtkRenderer> m_renderer;
     VSP<vtkRenderWindowInteractor> m_iren;
+
+    VSP<vtkFloatArray> m_pcoords;
+    VSP<vtkPoints> m_points;
+    VSP<vtkPolyData> m_polydata;
+    VSP<vtkPolyDataMapper> m_mapper;
 
     cl_float* test_buffer;
     int buffer_size;

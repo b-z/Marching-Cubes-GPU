@@ -65,14 +65,19 @@ MarchingCubes::MarchingCubes(VolumeData* v, int isolevel_) {
     yrot = 0;
     test_buffer = NULL;
     buffer_size = 0;
+    m_pcoords = VSP<vtkFloatArray>::New();
+    m_points = VSP<vtkPoints>::New();
+    m_polydata = VSP<vtkPolyData>::New();
+    m_mapper = VSP<vtkPolyDataMapper>::New();
+
 
     // size: 2的n次方，将数据变成一个正方体，那个正方体的边长
     int size = prepareDataset(&voxels, v->nx, v->ny, v->nz);
-    
+
     setupVTK();
 
     setupOpenGL(size, v->nx, v->ny, v->nz, v->dx, v->dy, v->dz);
-    
+
     setupOpenCL(voxels, size);
 }
 
@@ -104,7 +109,7 @@ void mouseMovementCallback(int x, int y) {
 void callbackKeydown(vtkObject* caller, unsigned long eid, void* clientdata, void* calldata) {
     MarchingCubes* mc = (MarchingCubes*)clientdata;
     mc->isolevel += 50;
-    std::cout<<mc->isolevel<<std::endl;
+    std::cout << mc->isolevel << std::endl;
     mc->extractSurface = true;
     //glutPostRedisplay();
     mc->renderScene();
@@ -212,8 +217,8 @@ void MarchingCubes::renderScene() {
 
     if (extractSurfaceOnEveryFrame || extractSurface) {
         glDeleteBuffers(1, &VBO_ID);
-        
-        if(VBOBuffer != NULL && totalSum > 0) {
+
+        if (VBOBuffer != NULL && totalSum > 0) {
             delete VBOBuffer;
         }
         histoPyramidConstruction();
@@ -307,7 +312,7 @@ void MarchingCubes::renderScene() {
 
     extractSurface = false;
     //renWin->Render();
-    
+
 }
 
 void MarchingCubes::run() {
@@ -316,7 +321,7 @@ void MarchingCubes::run() {
 
 void MarchingCubes::setupOpenGL(int size, int sizeX, int sizeY, int sizeZ, float spacingX, float spacingY, float spacingZ) {
     currentInstance = this; // see http://stackoverflow.com/questions/3589422/using-opengl-glutdisplayfunc-within-class
-    
+
     /* Initialize GLUT */
     //glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
     //glutInitWindowPosition(0, 0);
@@ -379,12 +384,12 @@ void MarchingCubes::setupOpenGL(int size, int sizeX, int sizeY, int sizeZ, float
 void MarchingCubes::keyboard(unsigned char key, int x, int y) {
     switch (key) {
     case '+':
-        isolevel+=50;
+        isolevel += 50;
         if (!extractSurfaceOnEveryFrame)
             extractSurface = true;
         break;
     case '-':
-        isolevel-=50;
+        isolevel -= 50;
         if (!extractSurfaceOnEveryFrame)
             extractSurface = true;
         break;
@@ -617,33 +622,33 @@ void MarchingCubes::histoPyramidConstruction() {
             cl::NullRange
             );
     }
-    
+
 }
 
 void MarchingCubes::updateScalarField() {
 
-        classifyCubesKernel.setArg(0, buffers[0]);
-        classifyCubesKernel.setArg(1, cubeIndexesBuffer);
-        classifyCubesKernel.setArg(2, rawData);
-        classifyCubesKernel.setArg(3, isolevel);
-        queue.enqueueNDRangeKernel(
-            classifyCubesKernel,
-            cl::NullRange,
-            cl::NDRange(SIZE, SIZE, SIZE),
-            cl::NullRange
-            );
+    classifyCubesKernel.setArg(0, buffers[0]);
+    classifyCubesKernel.setArg(1, cubeIndexesBuffer);
+    classifyCubesKernel.setArg(2, rawData);
+    classifyCubesKernel.setArg(3, isolevel);
+    queue.enqueueNDRangeKernel(
+        classifyCubesKernel,
+        cl::NullRange,
+        cl::NDRange(SIZE, SIZE, SIZE),
+        cl::NullRange
+        );
 
-        cl::size_t<3> offset;
-        offset[0] = 0;
-        offset[1] = 0;
-        offset[2] = 0;
-        cl::size_t<3> region;
-        region[0] = SIZE;
-        region[1] = SIZE;
-        region[2] = SIZE;
+    cl::size_t<3> offset;
+    offset[0] = 0;
+    offset[1] = 0;
+    offset[2] = 0;
+    cl::size_t<3> region;
+    region[0] = SIZE;
+    region[1] = SIZE;
+    region[2] = SIZE;
 
-        // Copy buffer to image
-        queue.enqueueCopyBufferToImage(cubeIndexesBuffer, cubeIndexesImage, 0, offset, region);
+    // Copy buffer to image
+    queue.enqueueCopyBufferToImage(cubeIndexesBuffer, cubeIndexesImage, 0, offset, region);
 }
 
 void MarchingCubes::histoPyramidTraversal(int sum) {
@@ -685,33 +690,37 @@ void MarchingCubes::histoPyramidTraversal(int sum) {
     queue.flush();
 }
 
+bool tmp = true;
+
 void MarchingCubes::test() {
-    VSP<vtkFloatArray> pcoords = VSP<vtkFloatArray>::New();
-
+    //VSP<vtkFloatArray> pcoords = VSP<vtkFloatArray>::New();
+    vtkFloatArray* pcoords = vtkFloatArray::New();
     pcoords->SetNumberOfComponents(3);
+    pcoords->SetArray(test_buffer, totalSum * 18, true);
 
 
-    pcoords->SetArray(test_buffer, totalSum*18, true);
-    VSP<vtkPoints> points = VSP<vtkPoints>::New();
+    //VSP<vtkPoints> points = VSP<vtkPoints>::New();
+    vtkPoints* points = vtkPoints::New();
     points->SetData(pcoords);
 
-    m_polys->Initialize();
-
-    for (int i=0;i<totalSum;i++){
-        m_polys->InsertNextCell(3);
-        m_polys->InsertCellPoint(i*6);
-        m_polys->InsertCellPoint(i*6+2);
-        m_polys->InsertCellPoint(i*6+4);
+    //m_polys->Initialize();
+    vtkCellArray* polys = vtkCellArray::New();
+    for (int i = 0; i < totalSum; i++) {
+        polys->InsertNextCell(3);
+        polys->InsertCellPoint(i * 6);
+        polys->InsertCellPoint(i * 6 + 2);
+        polys->InsertCellPoint(i * 6 + 4);
     }
 
-    VSP<vtkPolyData> polydata = VSP<vtkPolyData>::New();
-    polydata->SetPoints(points);
-    polydata->SetPolys(m_polys);
-    VSP<vtkPolyDataMapper> mapper = VSP<vtkPolyDataMapper>::New();
-    mapper->SetInputData(polydata);
-    
-    m_isoactor->SetMapper(mapper);
-
+    //VSP<vtkPolyData> polydata = VSP<vtkPolyData>::New();
+    m_polydata->SetPoints(points);
+    m_polydata->SetPolys(polys);
+    points->Delete();
+    polys->Delete();
+    pcoords->Delete();
+    //VSP<vtkPolyDataMapper> mapper = VSP<vtkPolyDataMapper>::New();
+    m_mapper->SetInputData(m_polydata);
+    m_isoactor->SetMapper(m_mapper);
     m_render_window->Render();
 
 }
